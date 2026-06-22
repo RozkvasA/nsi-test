@@ -40,9 +40,7 @@ export function buildTreeNodes(
     return objects.map((object) => {
       const objectType = objectTypes.find((type) => type.id === object.typeId);
       const childCount = objects.filter((item) => item.parentId === object.id).length;
-      const linkedSystemCount = systems.filter(
-        (system) => system.scopeObjectIds.includes(object.id) || system.linkedRoomIds.includes(object.id),
-      ).length;
+      const linkedSystemCount = systems.filter((system) => system.scopeObjectIds.includes(object.id) || system.linkedRoomIds.includes(object.id)).length;
       const linkedEquipmentCount = equipment.filter((item) => item.placementObjectId === object.id).length;
       const linkedTechCardCount = techCards.filter((item) => item.targetId === object.id).length;
       const summary = `${formatArea(object.area)} · ${childCount} доч. · ${linkedSystemCount} сист. · ${linkedEquipmentCount} обор. · ${linkedTechCardCount} ТК`;
@@ -187,16 +185,24 @@ export function getRetireImpact(
   systems: SystemEntity[],
   equipment: EquipmentEntity[],
   techCards: TechCard[],
-): RetireImpact | null {
+): RetireImpact {
   const selectedObject = objects.find((item) => item.id === objectId);
-  if (!selectedObject) return null;
+  if (!selectedObject) {
+    return {
+      targetObjectId: objectId,
+      targetObjectName: 'Элемент не найден',
+      descendantCount: 0,
+      affectedSystems: 0,
+      affectedEquipment: 0,
+      affectedTechCards: 0,
+      affectedObjectIds: [],
+    };
+  }
 
   const descendants = buildDescendantIds(objects, selectedObject.id);
   const affectedObjectIds = [selectedObject.id, ...descendants];
   const affectedSystems = systems.filter(
-    (system) =>
-      system.scopeObjectIds.some((id) => affectedObjectIds.includes(id)) ||
-      system.linkedRoomIds.some((id) => affectedObjectIds.includes(id)),
+    (system) => system.scopeObjectIds.some((id) => affectedObjectIds.includes(id)) || system.linkedRoomIds.some((id) => affectedObjectIds.includes(id)),
   ).length;
   const affectedEquipment = equipment.filter((item) => affectedObjectIds.includes(item.placementObjectId)).length;
   const affectedTechCards = techCards.filter((card) => affectedObjectIds.includes(card.targetId)).length;
@@ -212,9 +218,16 @@ export function getRetireImpact(
   };
 }
 
-export function getObjectTypeRetireImpact(typeId: string, objectTypes: ObjectType[], objects: InfrastructureObject[]): ObjectTypeRetireImpact | null {
+export function getObjectTypeRetireImpact(typeId: string, objectTypes: ObjectType[], objects: InfrastructureObject[]): ObjectTypeRetireImpact {
   const selectedType = objectTypes.find((item) => item.id === typeId);
-  if (!selectedType) return null;
+  if (!selectedType) {
+    return {
+      targetTypeId: typeId,
+      targetTypeName: 'Вид не найден',
+      childTypeCount: 0,
+      objectCount: 0,
+    };
+  }
 
   const descendants = buildObjectTypeDescendantIds(objectTypes, typeId);
   const affectedTypeIds = [typeId, ...descendants];
