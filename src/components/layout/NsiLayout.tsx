@@ -147,95 +147,113 @@ export function NsiLayout({
 }: NsiLayoutProps) {
   return (
     <div className="app-shell">
-      <aside className="sidebar">
-        <div className="brand-block">
-          <span className="brand-mark">НСИ</span>
+      <header className="topbar">
+        <div className="breadcrumbs" aria-label="Хлебные крошки">
+          <span>НСИ</span>
+          <b>/</b>
+          <strong>{activeSection.title}</strong>
+        </div>
+        <div className="user-block" aria-label="Пользователь">
+          <span className="user-avatar">УК</span>
           <div>
-            <h1>Модуль НСИ</h1>
-            <p>универсальная база исходных данных</p>
+            <b>Администратор</b>
+            <small>рабочее место НСИ</small>
           </div>
         </div>
+      </header>
 
-        <nav className="section-nav" aria-label="Разделы НСИ">
-          {sections.map((section) => (
-            <button
-              key={section.id}
-              type="button"
-              className={section.id === activeSectionId ? 'section-button active' : 'section-button'}
-              onClick={() => onSelectSection(section.id)}
-            >
-              <span>{section.title}</span>
-              <small>{section.description}</small>
-            </button>
-          ))}
-        </nav>
-      </aside>
+      <div className="app-body">
+        <aside className="sidebar">
+          <div className="brand-block">
+            <span className="brand-mark">НСИ</span>
+            <div>
+              <h1>Модуль НСИ</h1>
+              <p>исходные данные</p>
+            </div>
+          </div>
 
-      <main className="work-area">
-        <NsiTree
-          activeSection={activeSection}
-          activeSectionId={activeSectionId}
-          searchQuery={searchQuery}
-          sortAscending={sortAscending}
-          childrenByParentId={childrenByParentId}
-          expandedIds={expandedIds}
-          selectedRef={selectedRef}
-          pendingMoveRef={pendingMoveRef}
-          onSetSearchQuery={onSetSearchQuery}
-          onToggleSort={onToggleSort}
-          onToggleExpanded={onToggleExpanded}
-          onSelectNode={onSelectNode}
-          onStartDrag={onStartDrag}
-          onDropOnNode={onDropOnNode}
-          onCreate={onCreate}
-          onTreeAction={onTreeAction}
-          onMoveToNode={onMoveToNode}
-          onCancelMove={onCancelMove}
-        />
+          <nav className="section-nav" aria-label="Разделы НСИ">
+            <span className="nav-group-title">НСИ</span>
+            {sections.map((section) => (
+              <button
+                key={section.id}
+                type="button"
+                className={section.id === activeSectionId ? 'section-button active' : 'section-button'}
+                onClick={() => onSelectSection(section.id)}
+              >
+                <span>{section.title}</span>
+                <small>{section.description}</small>
+              </button>
+            ))}
+          </nav>
+        </aside>
 
-        <DetailsPanel
-          selectedRef={selectedRef}
-          selectedEntity={selectedEntity}
-          activeTab={activeTab}
-          tabs={tabs}
-          activeGroupId={activeGroupId}
-          parameterGroups={parameterGroups}
-          showEmpty={showEmpty}
-          detailsNotice={detailsNotice}
-          pendingObjectDraft={pendingObjectDraft}
-          objects={objects}
-          objectTypes={objectTypes}
-          objectStructureTemplates={objectStructureTemplates}
-          systems={systems}
-          equipment={equipment}
-          techCards={techCards}
-          dictionaries={dictionaries}
-          onSetActiveTab={onSetActiveTab}
-          onSetActiveGroupId={onSetActiveGroupId}
-          onSetShowEmpty={onSetShowEmpty}
-          onDismissNotice={onDismissNotice}
-          onConfirmRetire={onConfirmRetire}
-          onCancelRetire={onCancelRetire}
-          onConfirmObjectTypeRetire={onConfirmObjectTypeRetire}
-          onUpdatePendingObjectDraft={onUpdatePendingObjectDraft}
-          onConfirmCreateObject={onConfirmCreateObject}
-          onCancelPendingObjectDraft={onCancelPendingObjectDraft}
-          onCreateObjectTypeForDraft={onCreateObjectTypeForDraft}
-          onUpdateObject={onUpdateObject}
-          onUpdateObjectType={onUpdateObjectType}
-          onToggleAllowedChildType={onToggleAllowedChildType}
-          onAddParameterGroup={onAddParameterGroup}
-          onRenameParameterGroup={onRenameParameterGroup}
-          onAddParameterToGroup={onAddParameterToGroup}
-          onUpdateParameter={onUpdateParameter}
-          onDeleteParameter={onDeleteParameter}
-          onToggleObjectSystemLink={onToggleObjectSystemLink}
-          onToggleEquipmentPlacement={onToggleEquipmentPlacement}
-          onToggleSystemRoomLink={onToggleSystemRoomLink}
-          onBulkLinkRoomsToSystem={onBulkLinkRoomsToSystem}
-          onUpdateTechCard={onUpdateTechCard}
-        />
-      </main>
+        <main className="work-area">
+          <NsiTree
+            activeSection={activeSection}
+            activeSectionId={activeSectionId}
+            searchQuery={searchQuery}
+            sortAscending={sortAscending}
+            childrenByParentId={childrenByParentId}
+            expandedIds={expandedIds}
+            selectedRef={selectedRef}
+            pendingMoveRef={pendingMoveRef}
+            onSetSearchQuery={onSetSearchQuery}
+            onToggleSort={onToggleSort}
+            onToggleExpanded={onToggleExpanded}
+            onSelectNode={onSelectNode}
+            onStartDrag={onStartDrag}
+            onDropOnNode={onDropOnNode}
+            onCreate={onCreate}
+            onTreeAction={onTreeAction}
+            onMoveToNode={onMoveToNode}
+            onCancelMove={onCancelMove}
+          />
+
+          <DetailsPanel
+            selectedRef={selectedRef}
+            selectedEntity={selectedEntity}
+            activeTab={activeTab}
+            tabs={tabs}
+            activeGroupId={activeGroupId}
+            parameterGroups={parameterGroups}
+            showEmpty={showEmpty}
+            detailsNotice={detailsNotice}
+            pendingObjectDraft={pendingObjectDraft}
+            objects={objects}
+            objectTypes={objectTypes}
+            objectStructureTemplates={objectStructureTemplates}
+            systems={systems}
+            equipment={equipment}
+            techCards={techCards}
+            dictionaries={dictionaries}
+            onSetActiveTab={onSetActiveTab}
+            onSetActiveGroupId={onSetActiveGroupId}
+            onSetShowEmpty={onSetShowEmpty}
+            onDismissNotice={onDismissNotice}
+            onConfirmRetire={onConfirmRetire}
+            onCancelRetire={onCancelRetire}
+            onConfirmObjectTypeRetire={onConfirmObjectTypeRetire}
+            onUpdatePendingObjectDraft={onUpdatePendingObjectDraft}
+            onConfirmCreateObject={onConfirmCreateObject}
+            onCancelPendingObjectDraft={onCancelPendingObjectDraft}
+            onCreateObjectTypeForDraft={onCreateObjectTypeForDraft}
+            onUpdateObject={onUpdateObject}
+            onUpdateObjectType={onUpdateObjectType}
+            onToggleAllowedChildType={onToggleAllowedChildType}
+            onAddParameterGroup={onAddParameterGroup}
+            onRenameParameterGroup={onRenameParameterGroup}
+            onAddParameterToGroup={onAddParameterToGroup}
+            onUpdateParameter={onUpdateParameter}
+            onDeleteParameter={onDeleteParameter}
+            onToggleObjectSystemLink={onToggleObjectSystemLink}
+            onToggleEquipmentPlacement={onToggleEquipmentPlacement}
+            onToggleSystemRoomLink={onToggleSystemRoomLink}
+            onBulkLinkRoomsToSystem={onBulkLinkRoomsToSystem}
+            onUpdateTechCard={onUpdateTechCard}
+          />
+        </main>
+      </div>
     </div>
   );
 }
