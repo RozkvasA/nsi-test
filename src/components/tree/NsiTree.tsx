@@ -9,16 +9,16 @@ interface NsiTreeProps {
   childrenByParentId: Map<string | null, TreeNode[]>;
   expandedIds: Set<string>;
   selectedRef: SelectedRef;
-  pendingMoveObjectId: string | null;
+  pendingMoveRef: SelectedRef | null;
   onSetSearchQuery: (value: string) => void;
   onToggleSort: () => void;
   onToggleExpanded: (nodeId: string) => void;
   onSelectNode: (node: TreeNode) => void;
-  onStartDrag: (objectId: string) => void;
-  onDropOnObject: (objectId: string) => void;
+  onStartDrag: (node: TreeNode) => void;
+  onDropOnNode: (node: TreeNode) => void;
   onCreate: (kind: CreateEntityKind, parentObjectId?: string | null) => void;
   onTreeAction: (node: TreeNode, actionId: TreeActionId) => void;
-  onMoveToObject: (targetObjectId: string) => void;
+  onMoveToNode: (node: TreeNode) => void;
   onCancelMove: () => void;
 }
 
@@ -45,20 +45,21 @@ export function NsiTree({
   childrenByParentId,
   expandedIds,
   selectedRef,
-  pendingMoveObjectId,
+  pendingMoveRef,
   onSetSearchQuery,
   onToggleSort,
   onToggleExpanded,
   onSelectNode,
   onStartDrag,
-  onDropOnObject,
+  onDropOnNode,
   onCreate,
   onTreeAction,
-  onMoveToObject,
+  onMoveToNode,
   onCancelMove,
 }: NsiTreeProps) {
   const [isHeaderAddOpen, setIsHeaderAddOpen] = useState(false);
   const selectedObjectId = selectedRef.kind === 'object' ? selectedRef.id : null;
+  const canHeaderAdd = activeSectionId === 'objects' && selectedRef.kind === 'object';
 
   return (
     <section className="tree-panel">
@@ -70,10 +71,10 @@ export function NsiTree({
         </div>
         <div className="header-actions">
           <div className="action-dropdown-wrap">
-            <button type="button" onClick={() => setIsHeaderAddOpen((value) => !value)} disabled={activeSectionId !== 'objects'}>
+            <button type="button" onClick={() => setIsHeaderAddOpen((value) => !value)} disabled={!canHeaderAdd}>
               Добавить
             </button>
-            {isHeaderAddOpen && activeSectionId === 'objects' ? (
+            {isHeaderAddOpen && canHeaderAdd ? (
               <div className="action-menu add-menu">
                 {createOptions.map((option) => (
                   <button
@@ -117,15 +118,15 @@ export function NsiTree({
         </button>
       </div>
 
-      {pendingMoveObjectId ? (
+      {pendingMoveRef ? (
         <div className="tree-hint move-mode-hint">
-          Выбран режим переноса. Нажмите Перенести сюда на нужном объекте или перетащите строку мышкой.
+          Выбран режим переноса. Нажмите Перенести сюда на нужной строке или перетащите строку мышкой.
           <button type="button" onClick={onCancelMove}>
             Отмена
           </button>
         </div>
       ) : (
-        <div className="tree-hint">Строки дерева свернуты по умолчанию. Для объектов доступен перенос drag and drop без переноса внутрь самого себя.</div>
+        <div className="tree-hint">Строки дерева свернуты по умолчанию. Для объектов и видов объектов доступен перенос drag and drop.</div>
       )}
 
       <div className="tree-list" role="tree">
@@ -138,14 +139,14 @@ export function NsiTree({
             childrenByParentId={childrenByParentId}
             expandedIds={expandedIds}
             selectedRef={selectedRef}
-            pendingMoveObjectId={pendingMoveObjectId}
+            pendingMoveRef={pendingMoveRef}
             onToggle={onToggleExpanded}
             onSelect={onSelectNode}
             onDragStart={onStartDrag}
-            onDropOnObject={onDropOnObject}
+            onDropOnNode={onDropOnNode}
             onCreate={onCreate}
             onTreeAction={onTreeAction}
-            onMoveToObject={onMoveToObject}
+            onMoveToNode={onMoveToNode}
           />
         ))}
       </div>
@@ -160,14 +161,14 @@ interface TreeBranchProps {
   childrenByParentId: Map<string | null, TreeNode[]>;
   expandedIds: Set<string>;
   selectedRef: SelectedRef;
-  pendingMoveObjectId: string | null;
+  pendingMoveRef: SelectedRef | null;
   onToggle: (nodeId: string) => void;
   onSelect: (node: TreeNode) => void;
-  onDragStart: (objectId: string) => void;
-  onDropOnObject: (objectId: string) => void;
+  onDragStart: (node: TreeNode) => void;
+  onDropOnNode: (node: TreeNode) => void;
   onCreate: (kind: CreateEntityKind, parentObjectId?: string | null) => void;
   onTreeAction: (node: TreeNode, actionId: TreeActionId) => void;
-  onMoveToObject: (targetObjectId: string) => void;
+  onMoveToNode: (node: TreeNode) => void;
 }
 
 function TreeBranch({
@@ -177,23 +178,24 @@ function TreeBranch({
   childrenByParentId,
   expandedIds,
   selectedRef,
-  pendingMoveObjectId,
+  pendingMoveRef,
   onToggle,
   onSelect,
   onDragStart,
-  onDropOnObject,
+  onDropOnNode,
   onCreate,
   onTreeAction,
-  onMoveToObject,
+  onMoveToNode,
 }: TreeBranchProps) {
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
   const [isAddMenuOpen, setIsAddMenuOpen] = useState(false);
   const children = childrenByParentId.get(node.id) ?? [];
   const isExpanded = expandedIds.has(node.id);
   const isSelected = selectedRef.kind === node.entityKind && selectedRef.id === node.id;
-  const isObject = node.entityKind === 'object';
-  const canUseObjectActions = activeSectionId === 'objects' && isObject;
-  const isMoveTarget = canUseObjectActions && pendingMoveObjectId && pendingMoveObjectId !== node.id;
+  const isObjectActionNode = activeSectionId === 'objects' && node.entityKind === 'object';
+  const isObjectTypeActionNode = activeSectionId === 'objectTypes' && node.entityKind === 'objectType';
+  const canUseActions = isObjectActionNode || isObjectTypeActionNode;
+  const isMoveTarget = canUseActions && pendingMoveRef && pendingMoveRef.kind === node.entityKind && pendingMoveRef.id !== node.id;
 
   return (
     <div className="tree-branch">
@@ -201,10 +203,10 @@ function TreeBranch({
         className={isSelected ? 'tree-row selected' : 'tree-row'}
         role="treeitem"
         aria-selected={isSelected}
-        draggable={canUseObjectActions}
-        onDragStart={() => canUseObjectActions && onDragStart(node.id)}
-        onDragOver={(event) => canUseObjectActions && event.preventDefault()}
-        onDrop={() => canUseObjectActions && onDropOnObject(node.id)}
+        draggable={canUseActions}
+        onDragStart={() => canUseActions && onDragStart(node)}
+        onDragOver={(event) => canUseActions && event.preventDefault()}
+        onDrop={() => canUseActions && onDropOnNode(node)}
         style={{ paddingLeft: `${depth * 18 + 10}px` }}
         onClick={() => onSelect(node)}
       >
@@ -231,7 +233,7 @@ function TreeBranch({
             className="move-target-button"
             onClick={(event) => {
               event.stopPropagation();
-              onMoveToObject(node.id);
+              onMoveToNode(node);
             }}
           >
             Перенести сюда
@@ -251,25 +253,28 @@ function TreeBranch({
           </button>
           {isActionMenuOpen ? (
             <div className="action-menu row-action-menu" onClick={(event) => event.stopPropagation()}>
-              {actionOptions.map((option) => (
-                <button
-                  key={option.id}
-                  type="button"
-                  disabled={!canUseObjectActions && option.id !== 'edit'}
-                  onClick={() => {
-                    if (option.id === 'add') {
-                      setIsAddMenuOpen((value) => !value);
-                      return;
-                    }
-                    onTreeAction(node, option.id);
-                    setIsActionMenuOpen(false);
-                    setIsAddMenuOpen(false);
-                  }}
-                >
-                  {option.label}
-                </button>
-              ))}
-              {isAddMenuOpen ? (
+              {actionOptions.map((option) => {
+                const label = option.id === 'add' && isObjectTypeActionNode ? 'Добавить дочерний вид' : option.label;
+                return (
+                  <button
+                    key={option.id}
+                    type="button"
+                    disabled={!canUseActions && option.id !== 'edit'}
+                    onClick={() => {
+                      if (option.id === 'add' && isObjectActionNode) {
+                        setIsAddMenuOpen((value) => !value);
+                        return;
+                      }
+                      onTreeAction(node, option.id);
+                      setIsActionMenuOpen(false);
+                      setIsAddMenuOpen(false);
+                    }}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+              {isAddMenuOpen && isObjectActionNode ? (
                 <div className="add-submenu">
                   {createOptions.map((option) => (
                     <button
@@ -301,14 +306,14 @@ function TreeBranch({
               childrenByParentId={childrenByParentId}
               expandedIds={expandedIds}
               selectedRef={selectedRef}
-              pendingMoveObjectId={pendingMoveObjectId}
+              pendingMoveRef={pendingMoveRef}
               onToggle={onToggle}
               onSelect={onSelect}
               onDragStart={onDragStart}
-              onDropOnObject={onDropOnObject}
+              onDropOnNode={onDropOnNode}
               onCreate={onCreate}
               onTreeAction={onTreeAction}
-              onMoveToObject={onMoveToObject}
+              onMoveToNode={onMoveToNode}
             />
           ))
         : null}
