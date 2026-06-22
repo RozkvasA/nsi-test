@@ -1,9 +1,10 @@
-import { objectTypes } from '../data/nsiDemoData';
 import type {
   DictionaryItem,
   EquipmentEntity,
   InfrastructureObject,
   NsiSectionId,
+  ObjectType,
+  ObjectTypeRetireImpact,
   RetireImpact,
   SelectedEntityView,
   SelectedRef,
@@ -14,11 +15,16 @@ import type {
 
 export const formatArea = (area: number | null) => (area === null ? 'площадь не заполнена' : `${area.toLocaleString('ru-RU')} м²`);
 
-export const isRoomType = (typeId: string) => objectTypes.find((type) => type.id === typeId)?.code === 'ROOM';
+export const isRoomType = (typeId: string, objectTypes: ObjectType[]) => objectTypes.find((type) => type.id === typeId)?.code === 'ROOM';
 
 export const buildDescendantIds = (objects: InfrastructureObject[], rootId: string): string[] => {
   const children = objects.filter((item) => item.parentId === rootId);
   return children.flatMap((child) => [child.id, ...buildDescendantIds(objects, child.id)]);
+};
+
+export const buildObjectTypeDescendantIds = (objectTypes: ObjectType[], rootId: string): string[] => {
+  const children = objectTypes.filter((item) => item.parentTypeId === rootId);
+  return children.flatMap((child) => [child.id, ...buildObjectTypeDescendantIds(objectTypes, child.id)]);
 };
 
 export function buildTreeNodes(
@@ -28,6 +34,7 @@ export function buildTreeNodes(
   equipment: EquipmentEntity[],
   techCards: TechCard[],
   dictionaries: DictionaryItem[],
+  objectTypes: ObjectType[],
 ): TreeNode[] {
   if (sectionId === 'objects') {
     return objects.map((object) => {
@@ -57,9 +64,10 @@ export function buildTreeNodes(
       id: type.id,
       parentId: type.parentTypeId,
       entityKind: 'objectType',
-      title: type.name,
+      title: `${type.icon} ${type.name}`,
       subtitle: `${type.code} · ${type.shortName}`,
-      summary: `${type.allowedChildTypeIds.length} доч. видов · ${type.parameterGroups.length} групп параметров`,
+      summary: `${type.allowedChildTypeIds.length} доч. видов · ${type.parameterGroups.length} групп · ${type.parameters.length} параметров`,
+      warning: !type.canCreateObjects ? 'создание запрещено' : undefined,
     }));
   }
 
@@ -130,6 +138,7 @@ export function resolveSelectedEntity(
   equipment: EquipmentEntity[],
   techCards: TechCard[],
   dictionaries: DictionaryItem[],
+  objectTypes: ObjectType[],
 ): SelectedEntityView | null {
   if (selectedRef.kind === 'object') {
     const object = objects.find((item) => item.id === selectedRef.id);
@@ -200,5 +209,20 @@ export function getRetireImpact(
     affectedEquipment,
     affectedTechCards,
     affectedObjectIds,
+  };
+}
+
+export function getObjectTypeRetireImpact(typeId: string, objectTypes: ObjectType[], objects: InfrastructureObject[]): ObjectTypeRetireImpact | null {
+  const selectedType = objectTypes.find((item) => item.id === typeId);
+  if (!selectedType) return null;
+
+  const descendants = buildObjectTypeDescendantIds(objectTypes, typeId);
+  const affectedTypeIds = [typeId, ...descendants];
+
+  return {
+    targetTypeId: selectedType.id,
+    targetTypeName: selectedType.name,
+    childTypeCount: descendants.length,
+    objectCount: objects.filter((object) => affectedTypeIds.includes(object.typeId)).length,
   };
 }
