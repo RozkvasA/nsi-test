@@ -12,6 +12,7 @@ import type {
   TechCard,
   TreeNode,
 } from '../types/nsi';
+import { collectRequiredParameterWarnings, formatShowInTreeParameters } from './nsiObjectParameters';
 
 export const formatArea = (area: number | null) => (area === null ? 'площадь не заполнена' : `${area.toLocaleString('ru-RU')} м²`);
 
@@ -43,7 +44,19 @@ export function buildTreeNodes(
       const linkedSystemCount = systems.filter((system) => system.scopeObjectIds.includes(object.id) || system.linkedRoomIds.includes(object.id)).length;
       const linkedEquipmentCount = equipment.filter((item) => item.placementObjectId === object.id).length;
       const linkedTechCardCount = techCards.filter((item) => item.targetId === object.id).length;
-      const summary = `${formatArea(object.area)} · ${childCount} доч. · ${linkedSystemCount} сист. · ${linkedEquipmentCount} обор. · ${linkedTechCardCount} ТК`;
+      const requiredWarnings = collectRequiredParameterWarnings(object, objectType);
+      const baseWarnings = [object.area === null ? 'Не заполнена площадь' : null, object.status === 'retired' ? 'Снят с учета' : null].filter(Boolean);
+      const warningCount = baseWarnings.length + requiredWarnings.length;
+      const showInTreeSummary = formatShowInTreeParameters(object, objectType).slice(0, 3);
+      const summaryParts = [
+        formatArea(object.area),
+        `${childCount} доч.`,
+        `${linkedSystemCount} сист.`,
+        `${linkedEquipmentCount} обор.`,
+        `${linkedTechCardCount} ТК`,
+        ...showInTreeSummary,
+        warningCount > 0 ? `${warningCount} предупрежд.` : null,
+      ].filter(Boolean);
 
       return {
         id: object.id,
@@ -51,8 +64,8 @@ export function buildTreeNodes(
         entityKind: 'object',
         title: object.name,
         subtitle: objectType?.name ?? 'Вид не задан',
-        summary,
-        warning: object.area === null ? 'нет площади' : object.status === 'retired' ? 'снят с учета' : undefined,
+        summary: summaryParts.join(' · '),
+        warning: object.status === 'retired' ? 'снят с учета' : warningCount > 0 ? `${warningCount} предупрежд.` : undefined,
       };
     });
   }
