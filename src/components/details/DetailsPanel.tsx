@@ -15,6 +15,7 @@ import type {
   TechCard,
 } from '../../types/nsi';
 import { ParameterContent } from './ParameterContent';
+import { TechCardContent } from './TechCardContent';
 
 interface DetailsPanelProps {
   selectedRef: SelectedRef;
@@ -104,6 +105,7 @@ export function DetailsPanel({
   const parentObject = pendingObjectDraft ? objects.find((item) => item.id === pendingObjectDraft.parentObjectId) : null;
   const isRootDraft = pendingObjectDraft?.kind === 'rootObject';
   const selectedTemplate = pendingObjectDraft ? objectStructureTemplates.find((template) => template.id === pendingObjectDraft.templateId) : undefined;
+  const selectedTechCard = selectedRef.kind === 'techCard' ? techCards.find((card) => card.id === selectedRef.id) : undefined;
 
   return (
     <section className="details-panel">
@@ -114,13 +116,7 @@ export function DetailsPanel({
       </header>
 
       {detailsNotice ? (
-        <DetailsNoticePanel
-          notice={detailsNotice}
-          onDismiss={onDismissNotice}
-          onConfirmRetire={onConfirmRetire}
-          onConfirmObjectTypeRetire={onConfirmObjectTypeRetire}
-          onCancelRetire={onCancelRetire}
-        />
+        <DetailsNoticePanel notice={detailsNotice} onDismiss={onDismissNotice} onConfirmRetire={onConfirmRetire} onConfirmObjectTypeRetire={onConfirmObjectTypeRetire} onCancelRetire={onCancelRetire} />
       ) : null}
 
       {pendingObjectDraft ? (
@@ -134,20 +130,8 @@ export function DetailsPanel({
             <div className="creation-mode-card">
               <span>Способ создания</span>
               <div className="mode-buttons">
-                <button
-                  type="button"
-                  className={pendingObjectDraft.creationMode === 'empty' ? 'mode-button active' : 'mode-button'}
-                  onClick={() => onUpdatePendingObjectDraft({ creationMode: 'empty' })}
-                >
-                  Создать пустой объект
-                </button>
-                <button
-                  type="button"
-                  className={pendingObjectDraft.creationMode === 'template' ? 'mode-button active' : 'mode-button'}
-                  onClick={() => onUpdatePendingObjectDraft({ creationMode: 'template' })}
-                >
-                  Создать из шаблона
-                </button>
+                <button type="button" className={pendingObjectDraft.creationMode === 'empty' ? 'mode-button active' : 'mode-button'} onClick={() => onUpdatePendingObjectDraft({ creationMode: 'empty' })}>Создать пустой объект</button>
+                <button type="button" className={pendingObjectDraft.creationMode === 'template' ? 'mode-button active' : 'mode-button'} onClick={() => onUpdatePendingObjectDraft({ creationMode: 'template' })}>Создать из шаблона</button>
               </div>
             </div>
           ) : null}
@@ -157,11 +141,7 @@ export function DetailsPanel({
               <label className="field-row">
                 <span>Шаблон структуры</span>
                 <select value={pendingObjectDraft.templateId} onChange={(event) => onUpdatePendingObjectDraft({ templateId: event.target.value })}>
-                  {objectStructureTemplates.map((template) => (
-                    <option key={template.id} value={template.id}>
-                      {template.name}
-                    </option>
-                  ))}
+                  {objectStructureTemplates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
                 </select>
               </label>
               <div className="template-description">
@@ -172,75 +152,26 @@ export function DetailsPanel({
             </>
           ) : null}
 
-          <label className="field-row">
-            <span>Родительский объект</span>
-            <input value={parentObject?.name ?? 'Корневой уровень'} readOnly />
-          </label>
-          <label className="field-row">
-            <span>Вид объекта</span>
-            <select value={pendingObjectDraft.typeId} onChange={(event) => onUpdatePendingObjectDraft({ typeId: event.target.value })}>
-              {objectTypes.map((type) => (
-                <option key={type.id} value={type.id}>
-                  {type.icon} {type.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="field-row">
-            <span>Наименование</span>
-            <input value={pendingObjectDraft.name} onChange={(event) => onUpdatePendingObjectDraft({ name: event.target.value })} />
-          </label>
-          <label className="field-row">
-            <span>Сокращение</span>
-            <input value={pendingObjectDraft.shortName} onChange={(event) => onUpdatePendingObjectDraft({ shortName: event.target.value })} />
-          </label>
-          {isRootDraft ? (
-            <label className="field-row">
-              <span>Уровень детализации</span>
-              <input
-                type="number"
-                min={1}
-                value={pendingObjectDraft.detailLevel}
-                onChange={(event) => onUpdatePendingObjectDraft({ detailLevel: Math.max(1, Number(event.target.value) || 1) })}
-              />
-            </label>
-          ) : null}
-          <label className="field-row">
-            <span>Площадь</span>
-            <input
-              type="number"
-              value={pendingObjectDraft.area ?? ''}
-              onChange={(event) => onUpdatePendingObjectDraft({ area: event.target.value === '' ? null : Number(event.target.value) })}
-            />
-          </label>
-          <label className="field-row">
-            <span>Количество</span>
-            <input type="number" value={pendingObjectDraft.quantity} onChange={(event) => onUpdatePendingObjectDraft({ quantity: Number(event.target.value) })} />
-          </label>
-          <label className="field-row">
-            <span>Единица измерения</span>
-            <input value={pendingObjectDraft.unit} onChange={(event) => onUpdatePendingObjectDraft({ unit: event.target.value })} />
-          </label>
+          <label className="field-row"><span>Родительский объект</span><input value={parentObject?.name ?? 'Корневой уровень'} readOnly /></label>
+          <label className="field-row"><span>Вид объекта</span><select value={pendingObjectDraft.typeId} onChange={(event) => onUpdatePendingObjectDraft({ typeId: event.target.value })}>{objectTypes.map((type) => <option key={type.id} value={type.id}>{type.icon} {type.name}</option>)}</select></label>
+          <label className="field-row"><span>Наименование</span><input value={pendingObjectDraft.name} onChange={(event) => onUpdatePendingObjectDraft({ name: event.target.value })} /></label>
+          <label className="field-row"><span>Сокращение</span><input value={pendingObjectDraft.shortName} onChange={(event) => onUpdatePendingObjectDraft({ shortName: event.target.value })} /></label>
+          {isRootDraft ? <label className="field-row"><span>Уровень детализации</span><input type="number" min={1} value={pendingObjectDraft.detailLevel} onChange={(event) => onUpdatePendingObjectDraft({ detailLevel: Math.max(1, Number(event.target.value) || 1) })} /></label> : null}
+          <label className="field-row"><span>Площадь</span><input type="number" value={pendingObjectDraft.area ?? ''} onChange={(event) => onUpdatePendingObjectDraft({ area: event.target.value === '' ? null : Number(event.target.value) })} /></label>
+          <label className="field-row"><span>Количество</span><input type="number" value={pendingObjectDraft.quantity} onChange={(event) => onUpdatePendingObjectDraft({ quantity: Number(event.target.value) })} /></label>
+          <label className="field-row"><span>Единица измерения</span><input value={pendingObjectDraft.unit} onChange={(event) => onUpdatePendingObjectDraft({ unit: event.target.value })} /></label>
           <div className="create-actions">
-            <button type="button" onClick={onConfirmCreateObject}>
-              Создать объект
-            </button>
-            <button type="button" onClick={onCreateObjectTypeForDraft}>
-              Создать новый вид
-            </button>
-            <button type="button" onClick={onCancelPendingObjectDraft}>
-              Отмена
-            </button>
+            <button type="button" onClick={onConfirmCreateObject}>Создать объект</button>
+            <button type="button" onClick={onCreateObjectTypeForDraft}>Создать новый вид</button>
+            <button type="button" onClick={onCancelPendingObjectDraft}>Отмена</button>
           </div>
         </div>
+      ) : selectedTechCard ? (
+        <TechCardContent card={selectedTechCard} objectTypes={objectTypes} dictionaries={dictionaries} activeTab={activeTab} onSetActiveTab={onSetActiveTab} onUpdateTechCard={onUpdateTechCard} />
       ) : (
         <>
           <div className="tabs">
-            {tabs.map((tab) => (
-              <button key={tab} type="button" className={tab === activeTab ? 'tab active' : 'tab'} onClick={() => onSetActiveTab(tab)}>
-                {tab}
-              </button>
-            ))}
+            {tabs.map((tab) => <button key={tab} type="button" className={tab === activeTab ? 'tab active' : 'tab'} onClick={() => onSetActiveTab(tab)}>{tab}</button>)}
           </div>
 
           {activeTab === 'Параметры' ? (
@@ -248,24 +179,14 @@ export function DetailsPanel({
               <aside className="parameter-groups">
                 <div className="toggle-row">
                   <span>Показать пустые</span>
-                  <label className="switch">
-                    <input type="checkbox" checked={showEmpty} onChange={(event) => onSetShowEmpty(event.target.checked)} />
-                    <span />
-                  </label>
+                  <label className="switch"><input type="checkbox" checked={showEmpty} onChange={(event) => onSetShowEmpty(event.target.checked)} /><span /></label>
                 </div>
                 {parameterGroups.map((group) => (
-                  <button
-                    key={group.id}
-                    type="button"
-                    className={group.id === activeGroupId ? 'group-button active' : 'group-button'}
-                    onClick={() => onSetActiveGroupId(group.id)}
-                  >
-                    <b>{group.title}</b>
-                    <small>{group.hint}</small>
+                  <button key={group.id} type="button" className={group.id === activeGroupId ? 'group-button active' : 'group-button'} onClick={() => onSetActiveGroupId(group.id)}>
+                    <b>{group.title}</b><small>{group.hint}</small>
                   </button>
                 ))}
               </aside>
-
               <div className="parameter-card">
                 <ParameterContent
                   selectedRef={selectedRef}
@@ -295,10 +216,7 @@ export function DetailsPanel({
               </div>
             </div>
           ) : (
-            <div className="stub-tab">
-              <h3>{activeTab}</h3>
-              <p>Раздел оставлен как заглушка этапа 1. Каркас вкладки есть, детальная логика будет подключаться следующими этапами.</p>
-            </div>
+            <div className="stub-tab"><h3>{activeTab}</h3><p>Раздел оставлен как заглушка этапа 1. Каркас вкладки есть, детальная логика будет подключаться следующими этапами.</p></div>
           )}
         </>
       )}
@@ -323,20 +241,8 @@ function DetailsNoticePanel({
     const { impact } = notice;
     return (
       <div className="notice-panel danger">
-        <div>
-          <b>Снятие с учета: {impact.targetObjectName}</b>
-          <p>
-            Будет затронуто: дочерних элементов {impact.descendantCount}, систем {impact.affectedSystems}, оборудования {impact.affectedEquipment}, техкарт {impact.affectedTechCards}.
-          </p>
-        </div>
-        <div className="notice-actions">
-          <button type="button" className="danger-button" onClick={onConfirmRetire}>
-            Подтвердить
-          </button>
-          <button type="button" onClick={onCancelRetire}>
-            Отмена
-          </button>
-        </div>
+        <div><b>Снятие с учета: {impact.targetObjectName}</b><p>Будет затронуто: дочерних элементов {impact.descendantCount}, систем {impact.affectedSystems}, оборудования {impact.affectedEquipment}, техкарт {impact.affectedTechCards}.</p></div>
+        <div className="notice-actions"><button type="button" className="danger-button" onClick={onConfirmRetire}>Подтвердить</button><button type="button" onClick={onCancelRetire}>Отмена</button></div>
       </div>
     );
   }
@@ -345,33 +251,16 @@ function DetailsNoticePanel({
     const { impact } = notice;
     return (
       <div className="notice-panel danger">
-        <div>
-          <b>Снятие вида с учета: {impact.targetTypeName}</b>
-          <p>
-            Будет затронуто: дочерних видов {impact.childTypeCount}, объектов этого вида и потомков {impact.objectCount}. Вид будет отключен для создания и редактирования.
-          </p>
-        </div>
-        <div className="notice-actions">
-          <button type="button" className="danger-button" onClick={onConfirmObjectTypeRetire}>
-            Подтвердить
-          </button>
-          <button type="button" onClick={onCancelRetire}>
-            Отмена
-          </button>
-        </div>
+        <div><b>Снятие вида с учета: {impact.targetTypeName}</b><p>Будет затронуто: дочерних видов {impact.childTypeCount}, объектов этого вида и потомков {impact.objectCount}. Вид будет отключен для создания и редактирования.</p></div>
+        <div className="notice-actions"><button type="button" className="danger-button" onClick={onConfirmObjectTypeRetire}>Подтвердить</button><button type="button" onClick={onCancelRetire}>Отмена</button></div>
       </div>
     );
   }
 
   return (
     <div className={notice.type === 'moveBlocked' ? 'notice-panel danger' : 'notice-panel'}>
-      <div>
-        <b>{notice.title}</b>
-        <p>{notice.message}</p>
-      </div>
-      <button type="button" onClick={onDismiss}>
-        Закрыть
-      </button>
+      <div><b>{notice.title}</b><p>{notice.message}</p></div>
+      <button type="button" onClick={onDismiss}>Закрыть</button>
     </div>
   );
 }

@@ -185,20 +185,62 @@ export interface EquipmentEntity {
   parameters: Record<string, string | number | boolean | null>;
 }
 
+export interface TechCardOperation {
+  id: string;
+  order: number;
+  name: string;
+  description: string;
+  required: boolean;
+  expectedResult: string;
+}
+
+export interface TechCardPersonnel {
+  id: string;
+  positionId: string;
+  qualificationId: string;
+  gradeId: string;
+  count: number;
+  minDurationManHours: number | null;
+  comment: string;
+}
+
+export interface TechCardMaterial {
+  id: string;
+  materialId: string;
+  quantity: number;
+  unitId: string;
+  required: boolean;
+  comment: string;
+}
+
+export interface TechCardPpe {
+  id: string;
+  ppeId: string;
+  quantity: number;
+  unitId: string;
+  required: boolean;
+  comment: string;
+}
+
 export interface TechCard {
   id: string;
   name: string;
   type: string;
   targetType: TechCardTargetType;
   targetId: string;
+  targetObjectTypeId: string;
   workTypeId: string;
+  inputDate: string;
+  outputDate: string;
   periodicity: string;
+  minExecutionInterval: string;
   minDurationManHours: number | null;
-  operations: string[];
-  personnel: string[];
-  materials: string[];
-  ppe: string[];
+  operations: TechCardOperation[];
+  personnel: TechCardPersonnel[];
+  materials: TechCardMaterial[];
+  ppe: TechCardPpe[];
   isActive: boolean;
+  isComplex: boolean;
 }
 
 export interface DictionaryItem {

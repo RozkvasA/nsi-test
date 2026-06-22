@@ -14,6 +14,7 @@ import type {
 } from '../types/nsi';
 import { collectRequiredParameterWarnings, formatShowInTreeParameters } from './nsiObjectParameters';
 import { getDetailSummaryLabel } from './nsiObjectTemplates';
+import { formatTechCardSummary, getTechCardWarnings } from './nsiTechCards';
 
 export const formatArea = (area: number | null) => (area === null ? 'площадь не заполнена' : `${area.toLocaleString('ru-RU')} м²`);
 
@@ -85,15 +86,18 @@ export function buildTreeNodes(
   }
 
   if (sectionId === 'techCards') {
-    return techCards.map((card) => ({
-      id: card.id,
-      parentId: null,
-      entityKind: 'techCard',
-      title: card.name,
-      subtitle: `${card.type} · цель: ${targetLabel(card.targetType)}`,
-      summary: `${card.periodicity} · ${card.operations.length} опер. · ${card.minDurationManHours ?? '—'} чел-ч`,
-      warning: card.operations.length === 0 ? 'нет операций' : undefined,
-    }));
+    return techCards.map((card) => {
+      const warnings = getTechCardWarnings(card);
+      return {
+        id: card.id,
+        parentId: null,
+        entityKind: 'techCard',
+        title: card.name || 'Техкарта без наименования',
+        subtitle: `${card.type || 'тип не задан'} · цель: ${targetLabel(card.targetType)}`,
+        summary: formatTechCardSummary(card, objectTypes, dictionaries),
+        warning: warnings.length > 0 ? `${warnings.length} предупрежд.` : undefined,
+      };
+    });
   }
 
   return dictionaries.map((item) => ({
@@ -167,7 +171,7 @@ export function resolveSelectedEntity(
 
   if (selectedRef.kind === 'techCard') {
     const card = techCards.find((item) => item.id === selectedRef.id);
-    return card ? { title: card.name, subtitle: `${card.type} · ${resolveTargetName(card, objects, systems, equipment)}` } : null;
+    return card ? { title: card.name || 'Техкарта без наименования', subtitle: `${card.type || 'тип не задан'} · ${resolveTargetName(card, objects, systems, equipment)}` } : null;
   }
 
   const dictionary = dictionaries.find((item) => item.id === selectedRef.id);
@@ -180,6 +184,7 @@ export function resolveTargetName(
   systems: SystemEntity[],
   equipment: EquipmentEntity[],
 ) {
+  if (!card.targetId) return 'Не выбрано';
   if (card.targetType === 'room') return objects.find((item) => item.id === card.targetId)?.name ?? 'Не найдено';
   if (card.targetType === 'system') return systems.find((item) => item.id === card.targetId)?.name ?? 'Не найдено';
   return equipment.find((item) => item.id === card.targetId)?.name ?? 'Не найдено';
@@ -203,15 +208,7 @@ export function getRetireImpact(
 ): RetireImpact {
   const selectedObject = objects.find((item) => item.id === objectId);
   if (!selectedObject) {
-    return {
-      targetObjectId: objectId,
-      targetObjectName: 'Элемент не найден',
-      descendantCount: 0,
-      affectedSystems: 0,
-      affectedEquipment: 0,
-      affectedTechCards: 0,
-      affectedObjectIds: [],
-    };
+    return { targetObjectId: objectId, targetObjectName: 'Элемент не найден', descendantCount: 0, affectedSystems: 0, affectedEquipment: 0, affectedTechCards: 0, affectedObjectIds: [] };
   }
 
   const descendants = buildDescendantIds(objects, selectedObject.id);
@@ -235,14 +232,7 @@ export function getRetireImpact(
 
 export function getObjectTypeRetireImpact(typeId: string, objectTypes: ObjectType[], objects: InfrastructureObject[]): ObjectTypeRetireImpact {
   const selectedType = objectTypes.find((item) => item.id === typeId);
-  if (!selectedType) {
-    return {
-      targetTypeId: typeId,
-      targetTypeName: 'Вид не найден',
-      childTypeCount: 0,
-      objectCount: 0,
-    };
-  }
+  if (!selectedType) return { targetTypeId: typeId, targetTypeName: 'Вид не найден', childTypeCount: 0, objectCount: 0 };
 
   const descendants = buildObjectTypeDescendantIds(objectTypes, typeId);
   const affectedTypeIds = [typeId, ...descendants];

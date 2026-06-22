@@ -33,7 +33,9 @@
 .create-actions button,
 .inline-title button,
 .parameter-definition-card button,
-.mode-button {
+.mode-button,
+.secondary-action,
+.row-actions-inline button {
   border: 1px solid #d7e5f0;
   border-radius: 12px;
   background: #f8fbfe;
@@ -51,12 +53,15 @@
 .inline-title button:hover,
 .parameter-definition-card button:hover,
 .mode-button:hover,
-.mode-button.active {
+.mode-button.active,
+.secondary-action:hover,
+.row-actions-inline button:hover {
   border-color: #50bfff;
   background: #eef9ff;
 }
 
-.action-menu button:disabled {
+.action-menu button:disabled,
+.row-actions-inline button:disabled {
   cursor: not-allowed;
   opacity: 0.45;
 }
@@ -131,13 +136,20 @@
   color: #874d05;
 }
 
-.field-row select {
+.field-row select,
+.field-row textarea {
   min-height: 42px;
   border: 1px solid #cfdfeb;
   border-radius: 13px;
   background: #fbfdff;
   color: #102840;
   padding: 0 12px;
+}
+
+.field-row textarea {
+  min-height: 74px;
+  padding: 10px 12px;
+  resize: vertical;
 }
 
 .boolean-row {
@@ -155,7 +167,8 @@
   height: 17px;
 }
 
-.create-object-panel {
+.create-object-panel,
+.tech-card-editor {
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -163,13 +176,26 @@
   overflow: auto;
 }
 
+.tech-card-tabs {
+  margin: 0;
+}
+
+.tech-card-warning {
+  margin: 0;
+}
+
 .create-actions,
-.inline-title {
+.inline-title,
+.row-actions-inline {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
+}
+
+.row-actions-inline {
+  justify-content: flex-end;
 }
 
 .inline-title small {
@@ -224,7 +250,8 @@
 .type-group-list,
 .type-parameter-editor,
 .parameter-definition-card,
-.dynamic-parameter-list {
+.dynamic-parameter-list,
+.tech-card-row {
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -232,6 +259,10 @@
   border-radius: 20px;
   background: #ffffff;
   padding: 14px;
+}
+
+.tech-card-row {
+  background: #fbfdff;
 }
 
 .type-group-row {
