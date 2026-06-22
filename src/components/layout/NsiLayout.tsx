@@ -6,6 +6,7 @@ import type {
   InfrastructureObject,
   NsiSection,
   NsiSectionId,
+  ObjectStructureTemplate,
   ObjectType,
   ParameterDefinition,
   ParameterGroupId,
@@ -41,6 +42,7 @@ interface NsiLayoutProps {
   detailsNotice: DetailsNotice | null;
   objects: InfrastructureObject[];
   objectTypes: ObjectType[];
+  objectStructureTemplates: ObjectStructureTemplate[];
   systems: SystemEntity[];
   equipment: EquipmentEntity[];
   techCards: TechCard[];
@@ -102,6 +104,7 @@ export function NsiLayout({
   detailsNotice,
   objects,
   objectTypes,
+  objectStructureTemplates,
   systems,
   equipment,
   techCards,
@@ -202,6 +205,7 @@ export function NsiLayout({
           pendingObjectDraft={pendingObjectDraft}
           objects={objects}
           objectTypes={objectTypes}
+          objectStructureTemplates={objectStructureTemplates}
           systems={systems}
           equipment={equipment}
           techCards={techCards}
