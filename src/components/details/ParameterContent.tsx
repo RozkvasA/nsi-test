@@ -25,6 +25,7 @@ import {
   isEmptyParameterValue,
   normalizeParameterInput,
 } from '../../utils/nsiObjectParameters';
+import { getDetailStatusLabel, getObjectDetailInfo } from '../../utils/nsiObjectTemplates';
 import { RelationBlock } from '../relations/RelationBlock';
 
 const parameterDataTypes: ParameterDataType[] = ['string', 'number', 'boolean', 'date', 'dictionary'];
@@ -103,7 +104,11 @@ export function ParameterContent({
     const mainTypeParameters = getMainObjectTypeParameters(objectType);
     const additionalTypeParameters = getAdditionalObjectTypeParameters(objectType);
     const definedParameterCodes = new Set(objectType?.parameters.map((parameter) => parameter.code) ?? []);
-    const orphanParameters = Object.entries(object.parameters).filter(([code]) => !definedParameterCodes.has(code));
+    const serviceParameterCodes = new Set(['detailLevel', 'templateId', 'templateName']);
+    const orphanParameters = Object.entries(object.parameters).filter(([code]) => !definedParameterCodes.has(code) && !serviceParameterCodes.has(code));
+    const detailInfo = getObjectDetailInfo(objects, object.id);
+    const detailStatus = getDetailStatusLabel(objects, object.id);
+    const isRootObject = object.parentId === null;
 
     const updateObjectParameterValue = (parameter: ParameterDefinition, value: ParameterDefaultValue) => {
       if (coreObjectFieldCodes.has(parameter.code)) return;
@@ -160,6 +165,7 @@ export function ParameterContent({
               { label: 'typeId', value: object.typeId },
               { label: 'parentId', value: object.parentId ?? 'Нет' },
               { label: 'status', value: object.status },
+              { label: 'rootObjectId', value: detailInfo.rootObjectId },
             ]}
           />
           {additionalTypeParameters.length > 0 ? (
@@ -199,6 +205,21 @@ export function ParameterContent({
         <EditableField label="Количество" value={object.quantity} type="number" onChange={(value) => onUpdateObject(object.id, { quantity: Number(value) })} />
         <EditableField label="Единица измерения" value={object.unit} onChange={(value) => onUpdateObject(object.id, { unit: value })} />
         <SelectField label="Статус" value={object.status} options={[{ value: 'active', label: 'На учете' }, { value: 'retired', label: 'Снят с учета' }]} onChange={(value) => onUpdateObject(object.id, { status: value as ObjectStatus })} />
+        {isRootObject ? (
+          <EditableField
+            label="Уровень детализации"
+            value={detailInfo.detailLevel}
+            type="number"
+            onChange={(value) => onUpdateObject(object.id, { parameters: { ...object.parameters, detailLevel: Math.max(1, Number(value) || 1) } })}
+          />
+        ) : null}
+        <InfoGrid
+          items={[
+            { label: 'Уровень объекта', value: detailInfo.objectLevel },
+            { label: 'Детализация начинается с уровня', value: detailInfo.detailLevel },
+            { label: 'Статус детализации', value: detailStatus },
+          ]}
+        />
         <div className="dynamic-parameter-list">
           <div className="inline-title">
             <b>Параметры по виду объекта</b>
@@ -396,7 +417,10 @@ function ObjectParameterInput({ parameter, value, onChange }: { parameter: Param
   const inputType = parameter.dataType === 'number' ? 'number' : parameter.dataType === 'date' ? 'date' : 'text';
   return (
     <label className={isRequiredEmpty ? 'field-row warning-field' : 'field-row'}>
-      <span>{parameter.name}{parameter.unit ? `, ${parameter.unit}` : ''}</span>
+      <span>
+        {parameter.name}
+        {parameter.unit ? `, ${parameter.unit}` : ''}
+      </span>
       <input type={inputType} value={String(value ?? '')} placeholder={String(parameter.defaultValue ?? '')} onChange={(event) => onChange(normalizeParameterInput(parameter, event.target.value))} />
       {isRequiredEmpty ? <small>Обязательный параметр не заполнен</small> : null}
     </label>

@@ -3,6 +3,7 @@ import type {
   EquipmentEntity,
   InfrastructureObject,
   NsiSection,
+  ObjectStructureTemplate,
   ObjectType,
   SystemEntity,
   TechCard,
@@ -168,7 +169,7 @@ export const infrastructureObjects: InfrastructureObject[] = [
     quantity: 1,
     unit: 'объект',
     status: 'active',
-    parameters: { address: 'Не заполнено', commissioningYear: null, owner: null },
+    parameters: { address: 'Не заполнено', commissioningYear: null, owner: null, detailLevel: 3 },
   },
   {
     id: 'obj-level-1',
@@ -229,6 +230,79 @@ export const infrastructureObjects: InfrastructureObject[] = [
     unit: 'зона',
     status: 'active',
     parameters: { function: 'Инженерная зона', temperatureMode: null },
+  },
+];
+
+export const objectStructureTemplates: ObjectStructureTemplate[] = [
+  {
+    id: 'tpl-business-center',
+    name: 'Бизнес-центр',
+    description: 'Корневой объект, этажи, зоны и офисы. Подходит для офисной недвижимости и смешанных административных объектов.',
+    rootTypeId: 'type-infrastructure-object',
+    detailLevel: 3,
+    isDemo: true,
+    nodes: [
+      { id: 'bc-root', parentNodeId: null, name: 'Бизнес-центр', shortName: 'БЦ', typeId: 'type-infrastructure-object', quantity: 1, unit: 'объект', parameters: { templateKind: 'business-center' } },
+      { id: 'bc-floor', parentNodeId: 'bc-root', name: 'Этаж', shortName: 'Этаж', typeId: 'type-level', quantity: 5, unit: 'уровень', parameters: {} },
+      { id: 'bc-zone', parentNodeId: 'bc-floor', name: 'Офисная зона', shortName: 'Офисная зона', typeId: 'type-zone', quantity: 1, unit: 'зона', parameters: {} },
+      { id: 'bc-office', parentNodeId: 'bc-zone', name: 'Офис', shortName: 'Офис', typeId: 'type-room', quantity: 10, unit: 'помещение', parameters: { roomClass: 'Офис' } },
+    ],
+  },
+  {
+    id: 'tpl-residential',
+    name: 'Жилой комплекс',
+    description: 'Один из демо-примеров: объект, дома, этажи и помещения. Не является базовой архитектурой модуля.',
+    rootTypeId: 'type-infrastructure-object',
+    detailLevel: 2,
+    isDemo: true,
+    nodes: [
+      { id: 'res-root', parentNodeId: null, name: 'Жилой комплекс', shortName: 'ЖК', typeId: 'type-infrastructure-object', quantity: 1, unit: 'объект', parameters: { templateKind: 'residential' } },
+      { id: 'res-building', parentNodeId: 'res-root', name: 'Дом', shortName: 'Дом', typeId: 'type-level', quantity: 3, unit: 'здание', parameters: {} },
+      { id: 'res-floor', parentNodeId: 'res-building', name: 'Этаж', shortName: 'Этаж', typeId: 'type-level', quantity: 4, unit: 'уровень', parameters: {} },
+      { id: 'res-room', parentNodeId: 'res-floor', name: 'Помещение', shortName: 'Пом.', typeId: 'type-room', quantity: 6, unit: 'помещение', parameters: { roomClass: 'Жилое или общее' } },
+    ],
+  },
+  {
+    id: 'tpl-hotel',
+    name: 'Отель',
+    description: 'Корпуса, этажи и номера. Подходит для гостиниц, апарт-отелей и временного размещения.',
+    rootTypeId: 'type-infrastructure-object',
+    detailLevel: 3,
+    isDemo: true,
+    nodes: [
+      { id: 'hotel-root', parentNodeId: null, name: 'Отель', shortName: 'Отель', typeId: 'type-infrastructure-object', quantity: 1, unit: 'объект', parameters: { templateKind: 'hotel' } },
+      { id: 'hotel-building', parentNodeId: 'hotel-root', name: 'Корпус', shortName: 'Корпус', typeId: 'type-level', quantity: 2, unit: 'корпус', parameters: {} },
+      { id: 'hotel-floor', parentNodeId: 'hotel-building', name: 'Этаж', shortName: 'Этаж', typeId: 'type-level', quantity: 5, unit: 'уровень', parameters: {} },
+      { id: 'hotel-room', parentNodeId: 'hotel-floor', name: 'Номер', shortName: 'Номер', typeId: 'type-room', quantity: 12, unit: 'помещение', parameters: { roomClass: 'Номер' } },
+    ],
+  },
+  {
+    id: 'tpl-warehouse',
+    name: 'Склад',
+    description: 'Зоны хранения, участки и ячейки. Подходит для складских и логистических объектов.',
+    rootTypeId: 'type-infrastructure-object',
+    detailLevel: 2,
+    isDemo: true,
+    nodes: [
+      { id: 'warehouse-root', parentNodeId: null, name: 'Склад', shortName: 'Склад', typeId: 'type-infrastructure-object', quantity: 1, unit: 'объект', parameters: { templateKind: 'warehouse' } },
+      { id: 'warehouse-zone', parentNodeId: 'warehouse-root', name: 'Зона хранения', shortName: 'Зона', typeId: 'type-zone', quantity: 4, unit: 'зона', parameters: {} },
+      { id: 'warehouse-sector', parentNodeId: 'warehouse-zone', name: 'Участок', shortName: 'Участок', typeId: 'type-zone', quantity: 3, unit: 'участок', parameters: {} },
+      { id: 'warehouse-cell', parentNodeId: 'warehouse-sector', name: 'Ячейка', shortName: 'Ячейка', typeId: 'type-room', quantity: 8, unit: 'ячейка', parameters: { roomClass: 'Складская ячейка' } },
+    ],
+  },
+  {
+    id: 'tpl-production',
+    name: 'Производственный объект',
+    description: 'Производственные зоны, линии и участки. Подходит для заводов, цехов и инженерных площадок.',
+    rootTypeId: 'type-infrastructure-object',
+    detailLevel: 3,
+    isDemo: true,
+    nodes: [
+      { id: 'prod-root', parentNodeId: null, name: 'Производственный объект', shortName: 'Производство', typeId: 'type-infrastructure-object', quantity: 1, unit: 'объект', parameters: { templateKind: 'production' } },
+      { id: 'prod-zone', parentNodeId: 'prod-root', name: 'Производственная зона', shortName: 'Зона', typeId: 'type-zone', quantity: 3, unit: 'зона', parameters: {} },
+      { id: 'prod-line', parentNodeId: 'prod-zone', name: 'Линия', shortName: 'Линия', typeId: 'type-level', quantity: 2, unit: 'линия', parameters: {} },
+      { id: 'prod-area', parentNodeId: 'prod-line', name: 'Участок', shortName: 'Участок', typeId: 'type-room', quantity: 4, unit: 'участок', parameters: { roomClass: 'Производственный участок' } },
+    ],
   },
 ];
 

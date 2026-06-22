@@ -13,6 +13,7 @@ import type {
   TreeNode,
 } from '../types/nsi';
 import { collectRequiredParameterWarnings, formatShowInTreeParameters } from './nsiObjectParameters';
+import { getDetailSummaryLabel } from './nsiObjectTemplates';
 
 export const formatArea = (area: number | null) => (area === null ? 'площадь не заполнена' : `${area.toLocaleString('ru-RU')} м²`);
 
@@ -54,6 +55,7 @@ export function buildTreeNodes(
         `${linkedSystemCount} сист.`,
         `${linkedEquipmentCount} обор.`,
         `${linkedTechCardCount} ТК`,
+        getDetailSummaryLabel(objects, object.id),
         ...showInTreeSummary,
         warningCount > 0 ? `${warningCount} предупрежд.` : null,
       ].filter(Boolean);

@@ -16,6 +16,8 @@ export type ParameterDataType = 'string' | 'number' | 'boolean' | 'date' | 'dict
 
 export type ParameterDefaultValue = string | number | boolean | null;
 
+export type RootObjectCreationMode = 'empty' | 'template';
+
 export interface ParameterDefinition {
   id: string;
   name: string;
@@ -25,6 +27,27 @@ export interface ParameterDefinition {
   required: boolean;
   showInTree: boolean;
   defaultValue: ParameterDefaultValue;
+}
+
+export interface ObjectStructureTemplateNode {
+  id: string;
+  parentNodeId: string | null;
+  name: string;
+  shortName: string;
+  typeId: string;
+  quantity: number;
+  unit: string;
+  parameters: Record<string, ParameterDefaultValue>;
+}
+
+export interface ObjectStructureTemplate {
+  id: string;
+  name: string;
+  description: string;
+  rootTypeId: string;
+  detailLevel: number;
+  nodes: ObjectStructureTemplateNode[];
+  isDemo: boolean;
 }
 
 export interface SelectedRef {
@@ -52,6 +75,9 @@ export interface PendingObjectDraft {
   area: number | null;
   quantity: number;
   unit: string;
+  creationMode: RootObjectCreationMode;
+  templateId: string;
+  detailLevel: number;
 }
 
 export interface RetireImpact {

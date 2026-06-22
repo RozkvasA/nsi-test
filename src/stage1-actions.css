@@ -32,7 +32,8 @@
 .notice-panel button,
 .create-actions button,
 .inline-title button,
-.parameter-definition-card button {
+.parameter-definition-card button,
+.mode-button {
   border: 1px solid #d7e5f0;
   border-radius: 12px;
   background: #f8fbfe;
@@ -48,7 +49,9 @@
 .notice-panel button:hover,
 .create-actions button:hover,
 .inline-title button:hover,
-.parameter-definition-card button:hover {
+.parameter-definition-card button:hover,
+.mode-button:hover,
+.mode-button.active {
   border-color: #50bfff;
   background: #eef9ff;
 }
@@ -172,6 +175,44 @@
 .inline-title small {
   color: #66849c;
   font-weight: 800;
+}
+
+.creation-mode-card,
+.template-description {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  border: 1px solid #dce8f2;
+  border-radius: 18px;
+  background: #ffffff;
+  padding: 14px;
+}
+
+.creation-mode-card > span {
+  color: #66849c;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.mode-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.mode-button.active {
+  color: #075985;
+}
+
+.template-description b {
+  color: #102840;
+}
+
+.template-description p,
+.template-description span {
+  margin: 0;
+  color: #607f98;
+  line-height: 1.4;
 }
 
 .type-parameters-layout {
