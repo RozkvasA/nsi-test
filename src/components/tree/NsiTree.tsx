@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import type { CreateEntityKind, NsiSection, NsiSectionId, SelectedRef, TreeActionId, TreeNode } from '../../types/nsi';
 
 interface NsiTreeProps {
@@ -206,7 +206,7 @@ function TreeBranch({
   const isMoveTarget = canUseActions && pendingMoveRef && pendingMoveRef.kind === node.entityKind && pendingMoveRef.id !== node.id;
 
   return (
-    <div className="tree-branch" style={{ '--tree-depth': depth } as React.CSSProperties}>
+    <div className="tree-branch" style={{ '--tree-depth': depth } as CSSProperties}>
       <div
         className={isSelected ? 'tree-row selected' : 'tree-row'}
         role="treeitem"
@@ -218,21 +218,10 @@ function TreeBranch({
         style={{ paddingLeft: `${depth * 18 + 10}px` }}
         onClick={() => onSelect(node)}
       >
-        <button
-          type="button"
-          className="expand-button"
-          onClick={(event) => {
-            event.stopPropagation();
-            if (children.length > 0) onToggle(node.id);
-          }}
-          aria-label={isExpanded ? 'Свернуть' : 'Развернуть'}
-        >
+        <button type="button" className="expand-button" onClick={(event) => { event.stopPropagation(); if (children.length > 0) onToggle(node.id); }} aria-label={isExpanded ? 'Свернуть' : 'Развернуть'}>
           {children.length > 0 ? (isExpanded ? '▾' : '▸') : '•'}
         </button>
-        <div className="tree-main">
-          <strong>{node.title}</strong>
-          <span>{node.subtitle}</span>
-        </div>
+        <div className="tree-main"><strong>{node.title}</strong><span>{node.subtitle}</span></div>
         <div className="tree-summary">{node.summary}</div>
         {node.warning ? <span className="warning-pill">{node.warning}</span> : null}
         {isMoveTarget ? <button type="button" className="move-target-button" onClick={(event) => { event.stopPropagation(); onMoveToNode(node); }}>Перенести сюда</button> : null}
@@ -242,60 +231,15 @@ function TreeBranch({
             <div className="action-menu row-action-menu" onClick={(event) => event.stopPropagation()}>
               {actionOptions.map((option) => {
                 const label = option.id === 'add' && isObjectTypeActionNode ? 'Добавить дочерний вид' : option.label;
-                return (
-                  <button
-                    key={option.id}
-                    type="button"
-                    disabled={!canUseActions && option.id !== 'edit'}
-                    onClick={() => {
-                      if (option.id === 'add' && isObjectActionNode) {
-                        setIsAddMenuOpen((value) => !value);
-                        return;
-                      }
-                      onTreeAction(node, option.id);
-                      setIsActionMenuOpen(false);
-                      setIsAddMenuOpen(false);
-                    }}
-                  >
-                    {label}
-                  </button>
-                );
+                return <button key={option.id} type="button" disabled={!canUseActions && option.id !== 'edit'} onClick={() => { if (option.id === 'add' && isObjectActionNode) { setIsAddMenuOpen((value) => !value); return; } onTreeAction(node, option.id); setIsActionMenuOpen(false); setIsAddMenuOpen(false); }}>{label}</button>;
               })}
-              {isAddMenuOpen && isObjectActionNode ? (
-                <div className="add-submenu">
-                  {rowCreateOptions.map((option) => (
-                    <button key={option.id} type="button" onClick={() => { onCreate(option.id, node.id); setIsActionMenuOpen(false); setIsAddMenuOpen(false); }}>
-                      {option.label}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
+              {isAddMenuOpen && isObjectActionNode ? <div className="add-submenu">{rowCreateOptions.map((option) => <button key={option.id} type="button" onClick={() => { onCreate(option.id, node.id); setIsActionMenuOpen(false); setIsAddMenuOpen(false); }}>{option.label}</button>)}</div> : null}
             </div>
           ) : null}
         </div>
       </div>
 
-      {isExpanded
-        ? children.map((child) => (
-            <TreeBranch
-              key={child.id}
-              node={child}
-              depth={depth + 1}
-              activeSectionId={activeSectionId}
-              childrenByParentId={childrenByParentId}
-              expandedIds={expandedIds}
-              selectedRef={selectedRef}
-              pendingMoveRef={pendingMoveRef}
-              onToggle={onToggle}
-              onSelect={onSelect}
-              onDragStart={onDragStart}
-              onDropOnNode={onDropOnNode}
-              onCreate={onCreate}
-              onTreeAction={onTreeAction}
-              onMoveToNode={onMoveToNode}
-            />
-          ))
-        : null}
+      {isExpanded ? children.map((child) => <TreeBranch key={child.id} node={child} depth={depth + 1} activeSectionId={activeSectionId} childrenByParentId={childrenByParentId} expandedIds={expandedIds} selectedRef={selectedRef} pendingMoveRef={pendingMoveRef} onToggle={onToggle} onSelect={onSelect} onDragStart={onDragStart} onDropOnNode={onDropOnNode} onCreate={onCreate} onTreeAction={onTreeAction} onMoveToNode={onMoveToNode} />) : null}
     </div>
   );
 }
