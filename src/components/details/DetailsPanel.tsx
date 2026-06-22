@@ -3,6 +3,7 @@ import type {
   DictionaryItem,
   EquipmentEntity,
   InfrastructureObject,
+  ObjectStructureTemplate,
   ObjectType,
   ParameterDefinition,
   ParameterGroupId,
@@ -27,6 +28,7 @@ interface DetailsPanelProps {
   pendingObjectDraft: PendingObjectDraft | null;
   objects: InfrastructureObject[];
   objectTypes: ObjectType[];
+  objectStructureTemplates: ObjectStructureTemplate[];
   systems: SystemEntity[];
   equipment: EquipmentEntity[];
   techCards: TechCard[];
@@ -69,6 +71,7 @@ export function DetailsPanel({
   pendingObjectDraft,
   objects,
   objectTypes,
+  objectStructureTemplates,
   systems,
   equipment,
   techCards,
@@ -99,13 +102,15 @@ export function DetailsPanel({
   onUpdateTechCard,
 }: DetailsPanelProps) {
   const parentObject = pendingObjectDraft ? objects.find((item) => item.id === pendingObjectDraft.parentObjectId) : null;
+  const isRootDraft = pendingObjectDraft?.kind === 'rootObject';
+  const selectedTemplate = pendingObjectDraft ? objectStructureTemplates.find((template) => template.id === pendingObjectDraft.templateId) : undefined;
 
   return (
     <section className="details-panel">
       <header className="details-header">
         <p className="eyebrow">Карточка элемента</p>
         <h2>{pendingObjectDraft ? 'Создание объекта учета' : selectedEntity?.title ?? 'Элемент не выбран'}</h2>
-        <span>{pendingObjectDraft ? 'Выберите вид из актуального дерева видов объектов' : selectedEntity?.subtitle ?? 'Выберите строку в дереве'}</span>
+        <span>{pendingObjectDraft ? 'Выберите способ создания и вид объекта' : selectedEntity?.subtitle ?? 'Выберите строку в дереве'}</span>
       </header>
 
       {detailsNotice ? (
@@ -121,9 +126,52 @@ export function DetailsPanel({
       {pendingObjectDraft ? (
         <div className="create-object-panel">
           <div className="section-title">
-            <h3>Новый элемент дерева объектов</h3>
+            <h3>{isRootDraft ? 'Новый корневой объект' : 'Новый элемент дерева объектов'}</h3>
             <p>Создание не назначает тип автоматически: пользователь выбирает вид из редактируемого дерева видов объектов.</p>
           </div>
+
+          {isRootDraft ? (
+            <div className="creation-mode-card">
+              <span>Способ создания</span>
+              <div className="mode-buttons">
+                <button
+                  type="button"
+                  className={pendingObjectDraft.creationMode === 'empty' ? 'mode-button active' : 'mode-button'}
+                  onClick={() => onUpdatePendingObjectDraft({ creationMode: 'empty' })}
+                >
+                  Создать пустой объект
+                </button>
+                <button
+                  type="button"
+                  className={pendingObjectDraft.creationMode === 'template' ? 'mode-button active' : 'mode-button'}
+                  onClick={() => onUpdatePendingObjectDraft({ creationMode: 'template' })}
+                >
+                  Создать из шаблона
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {isRootDraft && pendingObjectDraft.creationMode === 'template' ? (
+            <>
+              <label className="field-row">
+                <span>Шаблон структуры</span>
+                <select value={pendingObjectDraft.templateId} onChange={(event) => onUpdatePendingObjectDraft({ templateId: event.target.value })}>
+                  {objectStructureTemplates.map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="template-description">
+                <b>{selectedTemplate?.name ?? 'Шаблон не выбран'}</b>
+                <p>{selectedTemplate?.description ?? 'Выберите шаблон структуры объекта.'}</p>
+                {selectedTemplate ? <span>{selectedTemplate.nodes.length} узлов шаблона · рекомендуемый уровень детализации {selectedTemplate.detailLevel}</span> : null}
+              </div>
+            </>
+          ) : null}
+
           <label className="field-row">
             <span>Родительский объект</span>
             <input value={parentObject?.name ?? 'Корневой уровень'} readOnly />
@@ -146,6 +194,17 @@ export function DetailsPanel({
             <span>Сокращение</span>
             <input value={pendingObjectDraft.shortName} onChange={(event) => onUpdatePendingObjectDraft({ shortName: event.target.value })} />
           </label>
+          {isRootDraft ? (
+            <label className="field-row">
+              <span>Уровень детализации</span>
+              <input
+                type="number"
+                min={1}
+                value={pendingObjectDraft.detailLevel}
+                onChange={(event) => onUpdatePendingObjectDraft({ detailLevel: Math.max(1, Number(event.target.value) || 1) })}
+              />
+            </label>
+          ) : null}
           <label className="field-row">
             <span>Площадь</span>
             <input
