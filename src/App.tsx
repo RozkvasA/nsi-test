@@ -119,9 +119,10 @@ function App() {
     setActiveGroupId('main');
   };
 
-  const pickDefaultTypeId = (kind: Extract<CreateEntityKind, 'childObject' | 'room'>, parentObjectId: string | null) => {
+  const pickDefaultTypeId = (kind: Extract<CreateEntityKind, 'rootObject' | 'childObject' | 'room'>, parentObjectId: string | null) => {
     const firstTypeId = objectTypes[0]?.id ?? '';
     if (kind === 'room') return objectTypes.find((objectType) => objectType.code === 'ROOM')?.id ?? firstTypeId;
+    if (kind === 'rootObject') return objectTypes.find((objectType) => objectType.code === 'INFRA_OBJECT')?.id ?? firstTypeId;
     const parentObject = objects.find((item) => item.id === parentObjectId);
     const parentType = objectTypes.find((objectType) => objectType.id === parentObject?.typeId);
     const allowedType = parentType?.allowedChildTypeIds
@@ -131,17 +132,17 @@ function App() {
     return allowedType?.id ?? fallbackType?.id ?? firstTypeId;
   };
 
-  const startObjectDraft = (kind: Extract<CreateEntityKind, 'childObject' | 'room'>, parentObjectId?: string | null) => {
-    const parentId = parentObjectId ?? (selectedRef.kind === 'object' ? selectedRef.id : null);
+  const startObjectDraft = (kind: Extract<CreateEntityKind, 'rootObject' | 'childObject' | 'room'>, parentObjectId?: string | null) => {
+    const parentId = kind === 'rootObject' ? null : parentObjectId ?? (selectedRef.kind === 'object' ? selectedRef.id : null);
     setPendingObjectDraft({
       kind,
       parentObjectId: parentId,
-      name: kind === 'room' ? 'Новое помещение' : 'Новый объект учета',
-      shortName: kind === 'room' ? 'Помещение' : 'Новый',
+      name: kind === 'rootObject' ? 'Новый корневой объект' : kind === 'room' ? 'Новое помещение' : 'Новый объект учета',
+      shortName: kind === 'rootObject' ? 'Объект' : kind === 'room' ? 'Помещение' : 'Новый',
       typeId: pickDefaultTypeId(kind, parentId),
       area: null,
       quantity: 1,
-      unit: kind === 'room' ? 'помещение' : 'ед.',
+      unit: kind === 'rootObject' ? 'объект' : kind === 'room' ? 'помещение' : 'ед.',
     });
     setDetailsNotice({
       type: 'editHint',
@@ -223,7 +224,7 @@ function App() {
   };
 
   const handleCreate = (kind: CreateEntityKind, parentObjectId?: string | null) => {
-    if (kind === 'childObject' || kind === 'room') {
+    if (kind === 'rootObject' || kind === 'childObject' || kind === 'room') {
       startObjectDraft(kind, parentObjectId);
       return;
     }
@@ -301,7 +302,7 @@ function App() {
     const source = objects.find((item) => item.id === objectId);
     if (!source) return;
     const id = `obj-copy-${Date.now()}`;
-    setObjects((prev) => [...prev, { ...source, id, name: `${source.name} копия`, shortName: `${source.shortName} копия`, status: 'active' }]);
+    setObjects((prev) => [...prev, { ...source, id, name: `${source.name} копия`, shortName: `${source.shortName} копия`, parameters: { ...source.parameters }, status: 'active' }]);
     setSelectedRef({ kind: 'object', id });
   };
 
@@ -326,24 +327,27 @@ function App() {
   };
 
   const requestRetireObject = (objectId: string) => {
-    setDetailsNotice({ type: 'retireConfirm', impact: getRetireImpact(objectId, objects, systems, equipment, techCards) });
-  };
-
-  const requestRetireObjectType = (typeId: string) => {
-    setDetailsNotice({ type: 'objectTypeRetireConfirm', impact: getObjectTypeRetireImpact(typeId, objectTypes, objects) });
+    const impact = getRetireImpact(objectId, objects, systems, equipment, techCards);
+    if (impact) setDetailsNotice({ type: 'retireConfirm', impact });
+    setSelectedRef({ kind: 'object', id: objectId });
   };
 
   const confirmRetireObject = () => {
-    if (detailsNotice?.type !== 'retireConfirm') return;
-    const affectedIds = detailsNotice.impact.affectedObjectIds;
-    setObjects((prev) => prev.map((item) => (affectedIds.includes(item.id) ? { ...item, status: 'retired' } : item)));
+    if (!detailsNotice || detailsNotice.type !== 'retireConfirm') return;
+    setObjects((prev) => prev.map((item) => (detailsNotice.impact.affectedObjectIds.includes(item.id) ? { ...item, status: 'retired' } : item)));
     setDetailsNotice(null);
   };
 
+  const requestRetireObjectType = (typeId: string) => {
+    const impact = getObjectTypeRetireImpact(typeId, objectTypes, objects);
+    if (impact) setDetailsNotice({ type: 'objectTypeRetireConfirm', impact });
+    setSelectedRef({ kind: 'objectType', id: typeId });
+  };
+
   const confirmRetireObjectType = () => {
-    if (detailsNotice?.type !== 'objectTypeRetireConfirm') return;
-    const affectedTypeIds = [detailsNotice.impact.targetTypeId, ...buildObjectTypeDescendantIds(objectTypes, detailsNotice.impact.targetTypeId)];
-    setObjectTypes((prev) => prev.map((type) => (affectedTypeIds.includes(type.id) ? { ...type, canCreateObjects: false, canEditObjects: false, canRetireObjects: false } : type)));
+    if (!detailsNotice || detailsNotice.type !== 'objectTypeRetireConfirm') return;
+    const typeIds = [detailsNotice.impact.targetTypeId, ...buildObjectTypeDescendantIds(objectTypes, detailsNotice.impact.targetTypeId)];
+    setObjectTypes((prev) => prev.map((type) => (typeIds.includes(type.id) ? { ...type, canCreateObjects: false, canEditObjects: false, canRetireObjects: false } : type)));
     setDetailsNotice(null);
   };
 
@@ -488,16 +492,7 @@ function App() {
         );
       }}
       onUpdateParameter={(typeId, parameterId, patch) =>
-        setObjectTypes((prev) =>
-          prev.map((type) =>
-            type.id === typeId
-              ? {
-                  ...type,
-                  parameters: type.parameters.map((parameter) => (parameter.id === parameterId ? { ...parameter, ...patch } : parameter)),
-                }
-              : type,
-          ),
-        )
+        setObjectTypes((prev) => prev.map((type) => (type.id === typeId ? { ...type, parameters: type.parameters.map((parameter) => (parameter.id === parameterId ? { ...parameter, ...patch } : parameter)) } : type)))
       }
       onDeleteParameter={(typeId, parameterId) =>
         setObjectTypes((prev) =>
@@ -527,8 +522,8 @@ function App() {
         setSystems((prev) =>
           prev.map((system) => {
             if (system.id !== systemId) return system;
-            const linked = system.linkedRoomIds.includes(roomId);
-            return { ...system, linkedRoomIds: linked ? system.linkedRoomIds.filter((id) => id !== roomId) : [...system.linkedRoomIds, roomId] };
+            const exists = system.linkedRoomIds.includes(roomId);
+            return { ...system, linkedRoomIds: exists ? system.linkedRoomIds.filter((id) => id !== roomId) : [...system.linkedRoomIds, roomId] };
           }),
         );
       }}
