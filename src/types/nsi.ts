@@ -12,6 +12,21 @@ export type TreeActionId = 'add' | 'edit' | 'move' | 'retire' | 'copy';
 
 export type CreateEntityKind = 'childObject' | 'room' | 'system' | 'equipment';
 
+export type ParameterDataType = 'string' | 'number' | 'boolean' | 'date' | 'dictionary';
+
+export type ParameterDefaultValue = string | number | boolean | null;
+
+export interface ParameterDefinition {
+  id: string;
+  name: string;
+  code: string;
+  dataType: ParameterDataType;
+  unit: string;
+  required: boolean;
+  showInTree: boolean;
+  defaultValue: ParameterDefaultValue;
+}
+
 export interface SelectedRef {
   kind: EntityKind;
   id: string;
@@ -28,6 +43,17 @@ export interface ParameterGroupView {
   hint: string;
 }
 
+export interface PendingObjectDraft {
+  kind: Extract<CreateEntityKind, 'childObject' | 'room'>;
+  parentObjectId: string | null;
+  name: string;
+  shortName: string;
+  typeId: string;
+  area: number | null;
+  quantity: number;
+  unit: string;
+}
+
 export interface RetireImpact {
   targetObjectId: string;
   targetObjectName: string;
@@ -36,6 +62,13 @@ export interface RetireImpact {
   affectedEquipment: number;
   affectedTechCards: number;
   affectedObjectIds: string[];
+}
+
+export interface ObjectTypeRetireImpact {
+  targetTypeId: string;
+  targetTypeName: string;
+  childTypeCount: number;
+  objectCount: number;
 }
 
 export type UiWarning =
@@ -55,7 +88,10 @@ export type UiWarning =
       message: string;
     };
 
-export type DetailsNotice = UiWarning | { type: 'retireConfirm'; impact: RetireImpact };
+export type DetailsNotice =
+  | UiWarning
+  | { type: 'retireConfirm'; impact: RetireImpact }
+  | { type: 'objectTypeRetireConfirm'; impact: ObjectTypeRetireImpact };
 
 export interface NsiSection {
   id: NsiSectionId;
@@ -91,6 +127,7 @@ export interface ObjectType {
   parentTypeId: string | null;
   allowedChildTypeIds: string[];
   parameterGroups: ParameterGroup[];
+  parameters: ParameterDefinition[];
   canCreateObjects: boolean;
   canEditObjects: boolean;
   canRetireObjects: boolean;
