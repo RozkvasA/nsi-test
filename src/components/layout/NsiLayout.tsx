@@ -6,8 +6,11 @@ import type {
   InfrastructureObject,
   NsiSection,
   NsiSectionId,
+  ObjectType,
+  ParameterDefinition,
   ParameterGroupId,
   ParameterGroupView,
+  PendingObjectDraft,
   SelectedEntityView,
   SelectedRef,
   SystemEntity,
@@ -28,7 +31,8 @@ interface NsiLayoutProps {
   expandedIds: Set<string>;
   selectedRef: SelectedRef;
   selectedEntity: SelectedEntityView | null;
-  pendingMoveObjectId: string | null;
+  pendingMoveRef: SelectedRef | null;
+  pendingObjectDraft: PendingObjectDraft | null;
   activeTab: string;
   tabs: string[];
   activeGroupId: ParameterGroupId;
@@ -36,6 +40,7 @@ interface NsiLayoutProps {
   showEmpty: boolean;
   detailsNotice: DetailsNotice | null;
   objects: InfrastructureObject[];
+  objectTypes: ObjectType[];
   systems: SystemEntity[];
   equipment: EquipmentEntity[];
   techCards: TechCard[];
@@ -45,11 +50,11 @@ interface NsiLayoutProps {
   onToggleSort: () => void;
   onToggleExpanded: (nodeId: string) => void;
   onSelectNode: (node: TreeNode) => void;
-  onStartDrag: (objectId: string) => void;
-  onDropOnObject: (objectId: string) => void;
+  onStartDrag: (node: TreeNode) => void;
+  onDropOnNode: (node: TreeNode) => void;
   onCreate: (kind: CreateEntityKind, parentObjectId?: string | null) => void;
   onTreeAction: (node: TreeNode, actionId: TreeActionId) => void;
-  onMoveToObject: (targetObjectId: string) => void;
+  onMoveToNode: (node: TreeNode) => void;
   onCancelMove: () => void;
   onSetActiveTab: (tab: string) => void;
   onSetActiveGroupId: (groupId: ParameterGroupId) => void;
@@ -57,7 +62,19 @@ interface NsiLayoutProps {
   onDismissNotice: () => void;
   onConfirmRetire: () => void;
   onCancelRetire: () => void;
+  onConfirmObjectTypeRetire: () => void;
+  onUpdatePendingObjectDraft: (patch: Partial<PendingObjectDraft>) => void;
+  onConfirmCreateObject: () => void;
+  onCancelPendingObjectDraft: () => void;
+  onCreateObjectTypeForDraft: () => void;
   onUpdateObject: (id: string, patch: Partial<InfrastructureObject>) => void;
+  onUpdateObjectType: (id: string, patch: Partial<ObjectType>) => void;
+  onToggleAllowedChildType: (typeId: string, childTypeId: string) => void;
+  onAddParameterGroup: (typeId: string) => void;
+  onRenameParameterGroup: (typeId: string, groupId: string, name: string) => void;
+  onAddParameterToGroup: (typeId: string, groupId: string) => void;
+  onUpdateParameter: (typeId: string, parameterId: string, patch: Partial<ParameterDefinition>) => void;
+  onDeleteParameter: (typeId: string, parameterId: string) => void;
   onToggleObjectSystemLink: (objectId: string, systemId: string) => void;
   onToggleEquipmentPlacement: (objectId: string, equipmentId: string) => void;
   onToggleSystemRoomLink: (systemId: string, roomId: string) => void;
@@ -75,7 +92,8 @@ export function NsiLayout({
   expandedIds,
   selectedRef,
   selectedEntity,
-  pendingMoveObjectId,
+  pendingMoveRef,
+  pendingObjectDraft,
   activeTab,
   tabs,
   activeGroupId,
@@ -83,6 +101,7 @@ export function NsiLayout({
   showEmpty,
   detailsNotice,
   objects,
+  objectTypes,
   systems,
   equipment,
   techCards,
@@ -93,10 +112,10 @@ export function NsiLayout({
   onToggleExpanded,
   onSelectNode,
   onStartDrag,
-  onDropOnObject,
+  onDropOnNode,
   onCreate,
   onTreeAction,
-  onMoveToObject,
+  onMoveToNode,
   onCancelMove,
   onSetActiveTab,
   onSetActiveGroupId,
@@ -104,7 +123,19 @@ export function NsiLayout({
   onDismissNotice,
   onConfirmRetire,
   onCancelRetire,
+  onConfirmObjectTypeRetire,
+  onUpdatePendingObjectDraft,
+  onConfirmCreateObject,
+  onCancelPendingObjectDraft,
+  onCreateObjectTypeForDraft,
   onUpdateObject,
+  onUpdateObjectType,
+  onToggleAllowedChildType,
+  onAddParameterGroup,
+  onRenameParameterGroup,
+  onAddParameterToGroup,
+  onUpdateParameter,
+  onDeleteParameter,
   onToggleObjectSystemLink,
   onToggleEquipmentPlacement,
   onToggleSystemRoomLink,
@@ -146,16 +177,16 @@ export function NsiLayout({
           childrenByParentId={childrenByParentId}
           expandedIds={expandedIds}
           selectedRef={selectedRef}
-          pendingMoveObjectId={pendingMoveObjectId}
+          pendingMoveRef={pendingMoveRef}
           onSetSearchQuery={onSetSearchQuery}
           onToggleSort={onToggleSort}
           onToggleExpanded={onToggleExpanded}
           onSelectNode={onSelectNode}
           onStartDrag={onStartDrag}
-          onDropOnObject={onDropOnObject}
+          onDropOnNode={onDropOnNode}
           onCreate={onCreate}
           onTreeAction={onTreeAction}
-          onMoveToObject={onMoveToObject}
+          onMoveToNode={onMoveToNode}
           onCancelMove={onCancelMove}
         />
 
@@ -168,7 +199,9 @@ export function NsiLayout({
           parameterGroups={parameterGroups}
           showEmpty={showEmpty}
           detailsNotice={detailsNotice}
+          pendingObjectDraft={pendingObjectDraft}
           objects={objects}
+          objectTypes={objectTypes}
           systems={systems}
           equipment={equipment}
           techCards={techCards}
@@ -179,7 +212,19 @@ export function NsiLayout({
           onDismissNotice={onDismissNotice}
           onConfirmRetire={onConfirmRetire}
           onCancelRetire={onCancelRetire}
+          onConfirmObjectTypeRetire={onConfirmObjectTypeRetire}
+          onUpdatePendingObjectDraft={onUpdatePendingObjectDraft}
+          onConfirmCreateObject={onConfirmCreateObject}
+          onCancelPendingObjectDraft={onCancelPendingObjectDraft}
+          onCreateObjectTypeForDraft={onCreateObjectTypeForDraft}
           onUpdateObject={onUpdateObject}
+          onUpdateObjectType={onUpdateObjectType}
+          onToggleAllowedChildType={onToggleAllowedChildType}
+          onAddParameterGroup={onAddParameterGroup}
+          onRenameParameterGroup={onRenameParameterGroup}
+          onAddParameterToGroup={onAddParameterToGroup}
+          onUpdateParameter={onUpdateParameter}
+          onDeleteParameter={onDeleteParameter}
           onToggleObjectSystemLink={onToggleObjectSystemLink}
           onToggleEquipmentPlacement={onToggleEquipmentPlacement}
           onToggleSystemRoomLink={onToggleSystemRoomLink}
