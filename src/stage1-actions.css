@@ -29,7 +29,10 @@
 .action-menu button,
 .add-submenu button,
 .move-target-button,
-.notice-panel button {
+.notice-panel button,
+.create-actions button,
+.inline-title button,
+.parameter-definition-card button {
   border: 1px solid #d7e5f0;
   border-radius: 12px;
   background: #f8fbfe;
@@ -42,7 +45,10 @@
 .action-menu button:hover,
 .add-submenu button:hover,
 .move-target-button:hover,
-.notice-panel button:hover {
+.notice-panel button:hover,
+.create-actions button:hover,
+.inline-title button:hover,
+.parameter-definition-card button:hover {
   border-color: #50bfff;
   background: #eef9ff;
 }
@@ -120,4 +126,88 @@
   border-color: #e4a15e;
   background: #fff0dc;
   color: #874d05;
+}
+
+.field-row select {
+  min-height: 42px;
+  border: 1px solid #cfdfeb;
+  border-radius: 13px;
+  background: #fbfdff;
+  color: #102840;
+  padding: 0 12px;
+}
+
+.boolean-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  color: #476981;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.boolean-row input {
+  width: 17px;
+  height: 17px;
+}
+
+.create-object-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+  overflow: auto;
+}
+
+.create-actions,
+.inline-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.type-parameters-layout {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  gap: 14px;
+}
+
+.type-group-list,
+.type-parameter-editor,
+.parameter-definition-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border: 1px solid #dce8f2;
+  border-radius: 20px;
+  background: #ffffff;
+  padding: 14px;
+}
+
+.type-group-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border: 1px solid #d7e5f0;
+  border-radius: 14px;
+  background: #f8fbfe;
+  color: #15304d;
+  padding: 11px;
+  text-align: left;
+}
+
+.type-group-row.active {
+  border-color: #44b8ff;
+  background: #eef9ff;
+}
+
+.type-group-row small {
+  color: #66849c;
+}
+
+.parameter-definition-card {
+  background: #fbfdff;
 }
