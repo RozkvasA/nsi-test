@@ -22,7 +22,15 @@ interface NsiTreeProps {
   onCancelMove: () => void;
 }
 
-const createOptions: Array<{ id: CreateEntityKind; label: string }> = [
+const headerCreateOptions: Array<{ id: CreateEntityKind; label: string }> = [
+  { id: 'rootObject', label: 'корневой объект' },
+  { id: 'childObject', label: 'дочерний объект' },
+  { id: 'room', label: 'помещение' },
+  { id: 'system', label: 'система' },
+  { id: 'equipment', label: 'оборудование' },
+];
+
+const rowCreateOptions: Array<{ id: CreateEntityKind; label: string }> = [
   { id: 'childObject', label: 'дочерний объект' },
   { id: 'room', label: 'помещение' },
   { id: 'system', label: 'система' },
@@ -59,7 +67,7 @@ export function NsiTree({
 }: NsiTreeProps) {
   const [isHeaderAddOpen, setIsHeaderAddOpen] = useState(false);
   const selectedObjectId = selectedRef.kind === 'object' ? selectedRef.id : null;
-  const canHeaderAdd = activeSectionId === 'objects' && selectedRef.kind === 'object';
+  const canHeaderAdd = activeSectionId === 'objects';
 
   return (
     <section className="tree-panel">
@@ -76,12 +84,12 @@ export function NsiTree({
             </button>
             {isHeaderAddOpen && canHeaderAdd ? (
               <div className="action-menu add-menu">
-                {createOptions.map((option) => (
+                {headerCreateOptions.map((option) => (
                   <button
                     key={option.id}
                     type="button"
                     onClick={() => {
-                      onCreate(option.id, selectedObjectId);
+                      onCreate(option.id, option.id === 'rootObject' ? null : selectedObjectId);
                       setIsHeaderAddOpen(false);
                     }}
                   >
@@ -276,7 +284,7 @@ function TreeBranch({
               })}
               {isAddMenuOpen && isObjectActionNode ? (
                 <div className="add-submenu">
-                  {createOptions.map((option) => (
+                  {rowCreateOptions.map((option) => (
                     <button
                       key={option.id}
                       type="button"

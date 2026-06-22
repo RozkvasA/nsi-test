@@ -169,6 +169,11 @@
   flex-wrap: wrap;
 }
 
+.inline-title small {
+  color: #66849c;
+  font-weight: 800;
+}
+
 .type-parameters-layout {
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr);
@@ -177,7 +182,8 @@
 
 .type-group-list,
 .type-parameter-editor,
-.parameter-definition-card {
+.parameter-definition-card,
+.dynamic-parameter-list {
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -210,4 +216,39 @@
 
 .parameter-definition-card {
   background: #fbfdff;
+}
+
+.object-parameter-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.warning-field input,
+.warning-field select {
+  border-color: #e4a15e;
+  background: #fff7ea;
+}
+
+.warning-field small,
+.inline-warning p {
+  color: #874d05;
+}
+
+.inline-warning {
+  border: 1px solid #f1c38d;
+  border-radius: 16px;
+  background: #fff7ea;
+  padding: 12px 14px;
+}
+
+.inline-warning b {
+  display: block;
+  color: #874d05;
+  margin-bottom: 4px;
+}
+
+.inline-warning p {
+  margin: 0;
+  line-height: 1.4;
 }

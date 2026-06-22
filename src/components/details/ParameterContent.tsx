@@ -3,8 +3,10 @@ import type {
   DictionaryItem,
   EquipmentEntity,
   InfrastructureObject,
+  ObjectStatus,
   ObjectType,
   ParameterDataType,
+  ParameterDefaultValue,
   ParameterDefinition,
   ParameterGroupId,
   SelectedEntityView,
@@ -12,7 +14,17 @@ import type {
   SystemEntity,
   TechCard,
 } from '../../types/nsi';
-import { buildObjectTypeDescendantIds, isRoomType, resolveTargetName, targetLabel } from '../../utils/nsiTree';
+import { buildDescendantIds, buildObjectTypeDescendantIds, isRoomType, resolveTargetName, targetLabel } from '../../utils/nsiTree';
+import {
+  collectRequiredParameterWarnings,
+  coreObjectFieldCodes,
+  formatParameterValue,
+  getAdditionalObjectTypeParameters,
+  getMainObjectTypeParameters,
+  getObjectParameterValue,
+  isEmptyParameterValue,
+  normalizeParameterInput,
+} from '../../utils/nsiObjectParameters';
 import { RelationBlock } from '../relations/RelationBlock';
 
 const parameterDataTypes: ParameterDataType[] = ['string', 'number', 'boolean', 'date', 'dictionary'];
@@ -78,14 +90,37 @@ export function ParameterContent({
 
     const objectType = objectTypes.find((type) => type.id === object.typeId);
     const parent = objects.find((item) => item.id === object.parentId);
+    const descendantIds = new Set([object.id, ...buildDescendantIds(objects, object.id)]);
+    const parentOptions = [
+      { value: '', label: 'Нет родительского объекта' },
+      ...objects.filter((item) => !descendantIds.has(item.id)).map((item) => ({ value: item.id, label: item.name })),
+    ];
     const roomsInBranch = objects.filter((item) => isRoomType(item.typeId, objectTypes));
+    const linkedSystems = systems.filter((system) => system.scopeObjectIds.includes(object.id) || system.linkedRoomIds.includes(object.id));
     const linkedEquipment = equipment.filter((item) => item.placementObjectId === object.id);
     const linkedTechCards = techCards.filter((item) => item.targetId === object.id);
+    const requiredWarnings = collectRequiredParameterWarnings(object, objectType);
+    const mainTypeParameters = getMainObjectTypeParameters(objectType);
+    const additionalTypeParameters = getAdditionalObjectTypeParameters(objectType);
+    const definedParameterCodes = new Set(objectType?.parameters.map((parameter) => parameter.code) ?? []);
+    const orphanParameters = Object.entries(object.parameters).filter(([code]) => !definedParameterCodes.has(code));
+
+    const updateObjectParameterValue = (parameter: ParameterDefinition, value: ParameterDefaultValue) => {
+      if (coreObjectFieldCodes.has(parameter.code)) return;
+      onUpdateObject(object.id, { parameters: { ...object.parameters, [parameter.code]: value } });
+    };
 
     if (activeGroupId === 'relations') {
       return (
         <div className="parameter-section">
-          <SectionTitle title="Связи объекта учета" description="Системы и оборудование не хранятся строками внутри помещения. Связи редактируются отдельно и остаются двусторонними." />
+          <SectionTitle title="Связи объекта учета" description="Системы и оборудование остаются отдельными сущностями. В карточке объекта показываются только связи." />
+          <InfoGrid
+            items={[
+              { label: 'Связанных систем', value: linkedSystems.length },
+              { label: 'Связанного оборудования', value: linkedEquipment.length },
+              { label: 'Связанных техкарт', value: linkedTechCards.length },
+            ]}
+          />
           <RelationBlock
             title="Связанные системы"
             description="Для помещения меняется linkedRoomIds, для другого узла дерева меняется scopeObjectIds. Глобальная система не дублируется ниже."
@@ -99,14 +134,11 @@ export function ParameterContent({
           <RelationBlock
             title="Связанное оборудование"
             description="Оборудование остается отдельной сущностью и хранит placementObjectId."
-            items={equipment.map((item) => ({
-              id: item.id,
-              label: item.name,
-              checked: item.placementObjectId === object.id,
-            }))}
+            items={equipment.map((item) => ({ id: item.id, label: item.name, checked: item.placementObjectId === object.id }))}
             onToggle={(id) => onToggleEquipmentPlacement(object.id, id)}
             singleChoice
           />
+          <TagList title="Связанные техкарты" tags={linkedTechCards.length > 0 ? linkedTechCards.map((card) => card.name) : ['Нет связанных техкарт']} />
           <div className="bulk-panel">
             <b>Массовая привязка</b>
             <p>Для выбранного объекта можно привязать систему ко всем помещениям ветки. Действие сохраняет систему отдельной сущностью.</p>
@@ -121,42 +153,70 @@ export function ParameterContent({
     if (activeGroupId === 'additional') {
       return (
         <div className="parameter-section">
-          <SectionTitle title="Прочие параметры по виду объекта" description="Поля берутся из вида объекта и не завязаны на конкретный тип недвижимости." />
-          <KeyValueList showEmpty={showEmpty} rows={Object.entries(object.parameters).map(([key, value]) => ({ label: key, value }))} />
+          <SectionTitle title="Прочие параметры и служебные поля" description="Здесь показаны параметры вида вне основной группы и технические идентификаторы объекта." />
           <InfoGrid
             items={[
-              { label: 'Связанных техкарт', value: linkedTechCards.length },
-              { label: 'Размещенного оборудования', value: linkedEquipment.length },
-              { label: 'Статус учета', value: object.status === 'active' ? 'На учете' : 'Снят с учета' },
+              { label: 'id', value: object.id },
+              { label: 'typeId', value: object.typeId },
+              { label: 'parentId', value: object.parentId ?? 'Нет' },
+              { label: 'status', value: object.status },
             ]}
           />
+          {additionalTypeParameters.length > 0 ? (
+            <div className="dynamic-parameter-list">
+              {additionalTypeParameters.map((parameter) => (
+                <ObjectParameterInput
+                  key={parameter.id}
+                  parameter={parameter}
+                  value={getObjectParameterValue(object, parameter)}
+                  onChange={(value) => updateObjectParameterValue(parameter, value)}
+                />
+              ))}
+            </div>
+          ) : (
+            <EmptyState title="Прочих параметров вида нет" description="Добавьте их в разделе Дерево видов объектов, вкладка Прочие." />
+          )}
+          {orphanParameters.length > 0 ? <KeyValueList showEmpty={showEmpty} rows={orphanParameters.map(([label, value]) => ({ label, value }))} /> : null}
         </div>
       );
     }
 
     return (
       <div className="parameter-section">
-        <SectionTitle title="Основные параметры" description="Редактирование выполняется в правой карточке, без модального окна поверх интерфейса." />
+        <SectionTitle title="Основные параметры объекта" description="Редактирование выполняется в правой карточке. Вид объекта берется из актуального Дерева видов объектов." />
+        {requiredWarnings.length > 0 ? (
+          <div className="inline-warning">
+            <b>Есть обязательные незаполненные параметры</b>
+            <p>{requiredWarnings.join('; ')}</p>
+          </div>
+        ) : null}
         <EditableField label="Идентификатор" value={object.id} readOnly />
         <EditableField label="Наименование" value={object.name} onChange={(value) => onUpdateObject(object.id, { name: value })} />
         <EditableField label="Сокращение" value={object.shortName} onChange={(value) => onUpdateObject(object.id, { shortName: value })} />
-        <SelectField
-          label="Вид объекта"
-          value={object.typeId}
-          options={objectTypes.map((type) => ({ value: type.id, label: `${type.icon} ${type.name}` }))}
-          onChange={(value) => onUpdateObject(object.id, { typeId: value })}
-        />
-        <EditableField label="Родительский объект" value={parent?.name ?? ''} readOnly empty={!parent} showEmpty={showEmpty} />
-        <EditableField
-          label="Площадь"
-          value={object.area ?? ''}
-          type="number"
-          empty={object.area === null}
-          showEmpty={showEmpty}
-          onChange={(value) => onUpdateObject(object.id, { area: value === '' ? null : Number(value) })}
-        />
+        <SelectField label="Вид объекта" value={object.typeId} options={objectTypes.map((type) => ({ value: type.id, label: `${type.icon} ${type.name}` }))} onChange={(value) => onUpdateObject(object.id, { typeId: value })} />
+        <SelectField label="Родительский объект" value={object.parentId ?? ''} options={parentOptions} onChange={(value) => onUpdateObject(object.id, { parentId: value || null })} />
+        <EditableField label="Площадь" value={object.area ?? ''} type="number" empty={object.area === null} showEmpty={showEmpty} onChange={(value) => onUpdateObject(object.id, { area: value === '' ? null : Number(value) })} />
         <EditableField label="Количество" value={object.quantity} type="number" onChange={(value) => onUpdateObject(object.id, { quantity: Number(value) })} />
         <EditableField label="Единица измерения" value={object.unit} onChange={(value) => onUpdateObject(object.id, { unit: value })} />
+        <SelectField label="Статус" value={object.status} options={[{ value: 'active', label: 'На учете' }, { value: 'retired', label: 'Снят с учета' }]} onChange={(value) => onUpdateObject(object.id, { status: value as ObjectStatus })} />
+        <div className="dynamic-parameter-list">
+          <div className="inline-title">
+            <b>Параметры по виду объекта</b>
+            <small>{objectType?.name ?? 'Вид не найден'}</small>
+          </div>
+          {mainTypeParameters.length > 0 ? (
+            mainTypeParameters.map((parameter) => (
+              <ObjectParameterInput
+                key={parameter.id}
+                parameter={parameter}
+                value={getObjectParameterValue(object, parameter)}
+                onChange={(value) => updateObjectParameterValue(parameter, value)}
+              />
+            ))
+          ) : (
+            <EmptyState title="Параметров в основной группе нет" description="Добавьте параметры в Дереве видов объектов или выберите другой вид." />
+          )}
+        </div>
       </div>
     );
   }
@@ -185,9 +245,7 @@ export function ParameterContent({
           <RelationBlock
             title="Допустимые дочерние виды"
             description="Эти чекбоксы задают шаблон создания дочерних элементов. Пользователь все равно может создать новый вид, если нужного нет."
-            items={objectTypes
-              .filter((item) => item.id !== type.id)
-              .map((item) => ({ id: item.id, label: `${item.icon} ${item.name}`, checked: type.allowedChildTypeIds.includes(item.id) }))}
+            items={objectTypes.filter((item) => item.id !== type.id).map((item) => ({ id: item.id, label: `${item.icon} ${item.name}`, checked: type.allowedChildTypeIds.includes(item.id) }))}
             onToggle={(childTypeId) => onToggleAllowedChildType(type.id, childTypeId)}
           />
         </div>
@@ -202,7 +260,7 @@ export function ParameterContent({
 
       return (
         <div className="parameter-section">
-          <SectionTitle title="Группы параметров и параметры вида" description="Эти настройки будут управлять формами объектов на следующих этапах." />
+          <SectionTitle title="Группы параметров и параметры вида" description="Эти настройки управляют динамическими параметрами объектов." />
           <div className="type-parameters-layout">
             <div className="type-group-list">
               <div className="inline-title">
@@ -212,12 +270,7 @@ export function ParameterContent({
                 </button>
               </div>
               {type.parameterGroups.map((group) => (
-                <button
-                  key={group.id}
-                  type="button"
-                  className={group.id === activeObjectTypeGroupId ? 'type-group-row active' : 'type-group-row'}
-                  onClick={() => setSelectedObjectTypeGroupId(group.id)}
-                >
+                <button key={group.id} type="button" className={group.id === activeObjectTypeGroupId ? 'type-group-row active' : 'type-group-row'} onClick={() => setSelectedObjectTypeGroupId(group.id)}>
                   <span>{group.name}</span>
                   <small>{group.parameterIds.length} параметров</small>
                 </button>
@@ -236,12 +289,7 @@ export function ParameterContent({
                   </div>
                   {groupParameters.length === 0 ? <EmptyState title="Параметров нет" description="Добавьте первый параметр для выбранной группы." /> : null}
                   {groupParameters.map((parameter) => (
-                    <ParameterEditor
-                      key={parameter.id}
-                      parameter={parameter}
-                      onUpdate={(patch) => onUpdateParameter(type.id, parameter.id, patch)}
-                      onDelete={() => onDeleteParameter(type.id, parameter.id)}
-                    />
+                    <ParameterEditor key={parameter.id} parameter={parameter} onUpdate={(patch) => onUpdateParameter(type.id, parameter.id, patch)} onDelete={() => onDeleteParameter(type.id, parameter.id)} />
                   ))}
                 </>
               ) : (
@@ -255,7 +303,7 @@ export function ParameterContent({
 
     return (
       <div className="parameter-section">
-        <SectionTitle title="Основные параметры вида" description="Редактирование вида выполняется прямо в карточке. Вид остается универсальным шаблоном, а не частной моделью ЖК." />
+        <SectionTitle title="Основные параметры вида" description="Редактирование вида выполняется прямо в карточке. Вид остается универсальным шаблоном." />
         <EditableField label="Идентификатор" value={type.id} readOnly />
         <EditableField label="Наименование" value={type.name} onChange={(value) => onUpdateObjectType(type.id, { name: value })} />
         <EditableField label="Код" value={type.code} onChange={(value) => onUpdateObjectType(type.id, { code: value })} />
@@ -303,14 +351,7 @@ export function ParameterContent({
         <EditableField label="Тип техкарты" value={card.type} onChange={(value) => onUpdateTechCard(card.id, { type: value })} />
         <EditableField label="Вид работы" value={card.workTypeId} readOnly />
         <EditableField label="Периодичность" value={card.periodicity} onChange={(value) => onUpdateTechCard(card.id, { periodicity: value })} />
-        <EditableField
-          label="Минимальная продолжительность, чел-ч"
-          value={card.minDurationManHours ?? ''}
-          type="number"
-          empty={card.minDurationManHours === null}
-          showEmpty={showEmpty}
-          onChange={(value) => onUpdateTechCard(card.id, { minDurationManHours: value === '' ? null : Number(value) })}
-        />
+        <EditableField label="Минимальная продолжительность, чел-ч" value={card.minDurationManHours ?? ''} type="number" empty={card.minDurationManHours === null} showEmpty={showEmpty} onChange={(value) => onUpdateTechCard(card.id, { minDurationManHours: value === '' ? null : Number(value) })} />
       </div>
     );
   }
@@ -340,14 +381,34 @@ export function ParameterContent({
   );
 }
 
+function ObjectParameterInput({ parameter, value, onChange }: { parameter: ParameterDefinition; value: ParameterDefaultValue; onChange: (value: ParameterDefaultValue) => void }) {
+  const isRequiredEmpty = parameter.required && isEmptyParameterValue(value);
+
+  if (parameter.dataType === 'boolean') {
+    return (
+      <div className={isRequiredEmpty ? 'object-parameter-field warning-field' : 'object-parameter-field'}>
+        <CheckboxField label={`${parameter.name}${parameter.unit ? `, ${parameter.unit}` : ''}`} checked={Boolean(value)} onChange={(checked) => onChange(checked)} />
+        {isRequiredEmpty ? <small>Обязательный параметр не заполнен</small> : null}
+      </div>
+    );
+  }
+
+  const inputType = parameter.dataType === 'number' ? 'number' : parameter.dataType === 'date' ? 'date' : 'text';
+  return (
+    <label className={isRequiredEmpty ? 'field-row warning-field' : 'field-row'}>
+      <span>{parameter.name}{parameter.unit ? `, ${parameter.unit}` : ''}</span>
+      <input type={inputType} value={String(value ?? '')} placeholder={String(parameter.defaultValue ?? '')} onChange={(event) => onChange(normalizeParameterInput(parameter, event.target.value))} />
+      {isRequiredEmpty ? <small>Обязательный параметр не заполнен</small> : null}
+    </label>
+  );
+}
+
 function ParameterEditor({ parameter, onUpdate, onDelete }: { parameter: ParameterDefinition; onUpdate: (patch: Partial<ParameterDefinition>) => void; onDelete: () => void }) {
   return (
     <div className="parameter-definition-card">
       <div className="inline-title">
         <b>{parameter.name || 'Новый параметр'}</b>
-        <button type="button" onClick={onDelete}>
-          Удалить параметр
-        </button>
+        <button type="button" onClick={onDelete}>Удалить параметр</button>
       </div>
       <EditableField label="Наименование" value={parameter.name} onChange={(value) => onUpdate({ name: value })} />
       <EditableField label="Код" value={parameter.code} onChange={(value) => onUpdate({ code: value })} />
@@ -402,9 +463,7 @@ function SelectField({ label, value, options, onChange }: { label: string; value
       <span>{label}</span>
       <select value={value} onChange={(event) => onChange(event.target.value)}>
         {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
+          <option key={option.value} value={option.value}>{option.label}</option>
         ))}
       </select>
     </label>
@@ -438,9 +497,7 @@ function TagList({ title, tags }: { title: string; tags: string[] }) {
     <div className="tag-list">
       <b>{title}</b>
       <div>
-        {tags.map((tag) => (
-          <span key={tag}>{tag}</span>
-        ))}
+        {tags.map((tag) => <span key={tag}>{tag}</span>)}
       </div>
     </div>
   );
@@ -448,15 +505,13 @@ function TagList({ title, tags }: { title: string; tags: string[] }) {
 
 function KeyValueList({ showEmpty, rows }: { showEmpty: boolean; rows: Array<{ label: string; value: string | number | boolean | null }> }) {
   const visibleRows = showEmpty ? rows : rows.filter((row) => row.value !== null && row.value !== '' && row.value !== 'Не заполнено');
-
   if (visibleRows.length === 0) return <EmptyState title="Нет заполненных параметров" description="Включите показ пустых полей или заполните параметры." />;
-
   return (
     <div className="key-value-list">
       {visibleRows.map((row) => (
         <div key={row.label} className={row.value === null || row.value === 'Не заполнено' ? 'key-value-row empty' : 'key-value-row'}>
           <span>{row.label}</span>
-          <b>{String(row.value ?? 'Не заполнено')}</b>
+          <b>{formatParameterValue(row.value)}</b>
         </div>
       ))}
     </div>
