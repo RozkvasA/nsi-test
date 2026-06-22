@@ -1,4 +1,4 @@
-[NSI_MODULE_TARGET_SPEC.md](https://github.com/user-attachments/files/29203140/NSI_MODULE_TARGET_SPEC.md)
+
 # НСИ: целевое описание и ТЗ для разработки
 
 ## 0. Правило для ИИ
