@@ -66,53 +66,51 @@ export function NsiTree({
   onCancelMove,
 }: NsiTreeProps) {
   const [isHeaderAddOpen, setIsHeaderAddOpen] = useState(false);
+  const [isPanelMenuOpen, setIsPanelMenuOpen] = useState(false);
+  const allNodes = Array.from(childrenByParentId.values()).flat();
+  const selectedNode = allNodes.find((node) => node.entityKind === selectedRef.kind && node.id === selectedRef.id);
   const selectedObjectId = selectedRef.kind === 'object' ? selectedRef.id : null;
-  const canHeaderAdd = activeSectionId === 'objects';
+  const canCreateFromPanel = activeSectionId === 'objects' || activeSectionId === 'objectTypes';
+  const canUseSelectedActions = selectedNode?.entityKind === 'object' || selectedNode?.entityKind === 'objectType';
+
+  const runCreate = () => {
+    if (activeSectionId === 'objects') {
+      onCreate(selectedObjectId ? 'childObject' : 'rootObject', selectedObjectId);
+      return;
+    }
+    if (activeSectionId === 'objectTypes' && selectedNode) onTreeAction(selectedNode, 'add');
+  };
+
+  const runSelectedAction = (actionId: TreeActionId) => {
+    if (!selectedNode || !canUseSelectedActions) return;
+    onTreeAction(selectedNode, actionId);
+  };
 
   return (
     <section className="tree-panel">
       <header className="panel-header">
         <div>
-          <p className="eyebrow">Выбранный раздел</p>
+          <p className="eyebrow">Текущий раздел</p>
           <h2>{activeSection.title}</h2>
           <span>{activeSection.description}</span>
         </div>
-        <div className="header-actions">
-          <div className="action-dropdown-wrap">
-            <button type="button" onClick={() => setIsHeaderAddOpen((value) => !value)} disabled={!canHeaderAdd}>
-              Добавить
-            </button>
-            {isHeaderAddOpen && canHeaderAdd ? (
-              <div className="action-menu add-menu">
-                {headerCreateOptions.map((option) => (
-                  <button
-                    key={option.id}
-                    type="button"
-                    onClick={() => {
-                      onCreate(option.id, option.id === 'rootObject' ? null : selectedObjectId);
-                      setIsHeaderAddOpen(false);
-                    }}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
-          <button
-            type="button"
-            onClick={() => selectedObjectId && onTreeAction({ id: selectedObjectId, parentId: null, entityKind: 'object', title: '', subtitle: '', summary: '' }, 'retire')}
-            disabled={activeSectionId !== 'objects' || !selectedObjectId}
-          >
-            Снять с учета
+        <div className="panel-action-menu">
+          <button type="button" className="compact-action-button" onClick={() => setIsPanelMenuOpen((value) => !value)} aria-label="Действия дерева">
+            ⋯
           </button>
-          <button
-            type="button"
-            onClick={() => selectedObjectId && onTreeAction({ id: selectedObjectId, parentId: null, entityKind: 'object', title: '', subtitle: '', summary: '' }, 'copy')}
-            disabled={activeSectionId !== 'objects' || !selectedObjectId}
-          >
-            Копировать
-          </button>
+          {isPanelMenuOpen ? (
+            <div className="action-menu panel-menu">
+              <button type="button" disabled={!canCreateFromPanel} onClick={() => { runCreate(); setIsPanelMenuOpen(false); }}>
+                Создать
+              </button>
+              <button type="button" disabled={!canUseSelectedActions} onClick={() => { runSelectedAction('retire'); setIsPanelMenuOpen(false); }}>
+                Удалить
+              </button>
+              <button type="button" disabled={!canUseSelectedActions} onClick={() => { runSelectedAction('copy'); setIsPanelMenuOpen(false); }}>
+                Копировать
+              </button>
+            </div>
+          ) : null}
         </div>
       </header>
 
@@ -122,20 +120,16 @@ export function NsiTree({
           <input value={searchQuery} onChange={(event) => onSetSearchQuery(event.target.value)} placeholder="Найти по названию, виду, сводке" />
         </label>
         <button type="button" className="ghost-button" onClick={onToggleSort}>
-          Сортировка: {sortAscending ? 'А → Я' : 'Я → А'}
+          {sortAscending ? 'А → Я' : 'Я → А'}
         </button>
       </div>
 
       {pendingMoveRef ? (
         <div className="tree-hint move-mode-hint">
           Выбран режим переноса. Нажмите Перенести сюда на нужной строке или перетащите строку мышкой.
-          <button type="button" onClick={onCancelMove}>
-            Отмена
-          </button>
+          <button type="button" onClick={onCancelMove}>Отмена</button>
         </div>
-      ) : (
-        <div className="tree-hint">Строки дерева свернуты по умолчанию. Для объектов и видов объектов доступен перенос drag and drop.</div>
-      )}
+      ) : null}
 
       <div className="tree-list" role="tree">
         {(childrenByParentId.get(null) ?? []).map((node) => (
@@ -158,6 +152,12 @@ export function NsiTree({
           />
         ))}
       </div>
+
+      <footer className="tree-footer-actions">
+        <button type="button" onClick={runCreate} disabled={!canCreateFromPanel}>Создать</button>
+        <button type="button" className="danger-lite" onClick={() => runSelectedAction('retire')} disabled={!canUseSelectedActions}>Удалить</button>
+        <button type="button" onClick={() => runSelectedAction('copy')} disabled={!canUseSelectedActions}>Копировать</button>
+      </footer>
     </section>
   );
 }
@@ -206,7 +206,7 @@ function TreeBranch({
   const isMoveTarget = canUseActions && pendingMoveRef && pendingMoveRef.kind === node.entityKind && pendingMoveRef.id !== node.id;
 
   return (
-    <div className="tree-branch">
+    <div className="tree-branch" style={{ '--tree-depth': depth } as React.CSSProperties}>
       <div
         className={isSelected ? 'tree-row selected' : 'tree-row'}
         role="treeitem"
@@ -235,30 +235,9 @@ function TreeBranch({
         </div>
         <div className="tree-summary">{node.summary}</div>
         {node.warning ? <span className="warning-pill">{node.warning}</span> : null}
-        {isMoveTarget ? (
-          <button
-            type="button"
-            className="move-target-button"
-            onClick={(event) => {
-              event.stopPropagation();
-              onMoveToNode(node);
-            }}
-          >
-            Перенести сюда
-          </button>
-        ) : null}
+        {isMoveTarget ? <button type="button" className="move-target-button" onClick={(event) => { event.stopPropagation(); onMoveToNode(node); }}>Перенести сюда</button> : null}
         <div className="row-menu-wrap">
-          <button
-            type="button"
-            className="row-menu"
-            onClick={(event) => {
-              event.stopPropagation();
-              setIsActionMenuOpen((value) => !value);
-              setIsAddMenuOpen(false);
-            }}
-          >
-            ⋯
-          </button>
+          <button type="button" className="row-menu" onClick={(event) => { event.stopPropagation(); setIsActionMenuOpen((value) => !value); setIsAddMenuOpen(false); }}>⋯</button>
           {isActionMenuOpen ? (
             <div className="action-menu row-action-menu" onClick={(event) => event.stopPropagation()}>
               {actionOptions.map((option) => {
@@ -285,15 +264,7 @@ function TreeBranch({
               {isAddMenuOpen && isObjectActionNode ? (
                 <div className="add-submenu">
                   {rowCreateOptions.map((option) => (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => {
-                        onCreate(option.id, node.id);
-                        setIsActionMenuOpen(false);
-                        setIsAddMenuOpen(false);
-                      }}
-                    >
+                    <button key={option.id} type="button" onClick={() => { onCreate(option.id, node.id); setIsActionMenuOpen(false); setIsAddMenuOpen(false); }}>
                       {option.label}
                     </button>
                   ))}
