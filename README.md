@@ -47,6 +47,14 @@
 - управляемый уровень детализации корневого объекта;
 - отображение статуса детализации в карточке объекта и строке дерева.
 
+Этап 5 добавляет:
+
+- отдельную карточку технологической карты;
+- вкладки техкарты: Параметры, Операции, Персонал, Материалы, СИЗ;
+- структурные операции, персонал, материалы и СИЗ;
+- inline-предупреждения активной техкарты;
+- расширенную строку техкарты в центральном дереве.
+
 ## Структура интерфейса
 
 ```text
@@ -55,10 +63,12 @@ src/components/layout/NsiLayout.tsx  общий трехпанельный layou
 src/components/tree/NsiTree.tsx      центральное дерево и меню действий
 src/components/details/DetailsPanel.tsx
 src/components/details/ParameterContent.tsx
+src/components/details/TechCardContent.tsx
 src/components/relations/RelationBlock.tsx
 src/utils/nsiTree.ts                 helpers дерева, поиска, сводок и проверок
 src/utils/nsiObjectParameters.ts     helpers динамических параметров объекта
 src/utils/nsiObjectTemplates.ts      helpers шаблонов и уровня детализации
+src/utils/nsiTechCards.ts            helpers технологических карт
 ```
 
 ## Запуск
