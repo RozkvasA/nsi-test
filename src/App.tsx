@@ -4,6 +4,7 @@ import {
   equipment as initialEquipment,
   infrastructureObjects as initialObjects,
   nsiSections,
+  objectStructureTemplates as initialObjectStructureTemplates,
   objectTypes as initialObjectTypes,
   systems as initialSystems,
   techCards as initialTechCards,
@@ -17,6 +18,7 @@ import type {
   EntityKind,
   InfrastructureObject,
   NsiSectionId,
+  ObjectStructureTemplate,
   ObjectType,
   ParameterDefinition,
   ParameterGroupId,
@@ -39,6 +41,7 @@ import {
   isRoomType,
   resolveSelectedEntity,
 } from './utils/nsiTree';
+import { buildObjectsFromTemplate, normalizeDetailLevel } from './utils/nsiObjectTemplates';
 
 const tabs = ['Параметры', 'Документы', 'Заметки', 'Карта', 'Обслуживание'];
 
@@ -59,6 +62,7 @@ function App() {
   const [activeSectionId, setActiveSectionId] = useState<NsiSectionId>('objects');
   const [objects, setObjects] = useState<InfrastructureObject[]>(initialObjects);
   const [objectTypes, setObjectTypes] = useState<ObjectType[]>(initialObjectTypes);
+  const [objectStructureTemplates] = useState<ObjectStructureTemplate[]>(initialObjectStructureTemplates);
   const [systems, setSystems] = useState<SystemEntity[]>(initialSystems);
   const [equipment, setEquipment] = useState<EquipmentEntity[]>(initialEquipment);
   const [techCards, setTechCards] = useState<TechCard[]>(initialTechCards);
@@ -122,7 +126,7 @@ function App() {
   const pickDefaultTypeId = (kind: Extract<CreateEntityKind, 'rootObject' | 'childObject' | 'room'>, parentObjectId: string | null) => {
     const firstTypeId = objectTypes[0]?.id ?? '';
     if (kind === 'room') return objectTypes.find((objectType) => objectType.code === 'ROOM')?.id ?? firstTypeId;
-    if (kind === 'rootObject') return objectTypes.find((objectType) => objectType.code === 'INFRA_OBJECT')?.id ?? firstTypeId;
+    if (kind === 'rootObject') return objectStructureTemplates[0]?.rootTypeId ?? objectTypes.find((objectType) => objectType.code === 'INFRA_OBJECT')?.id ?? firstTypeId;
     const parentObject = objects.find((item) => item.id === parentObjectId);
     const parentType = objectTypes.find((objectType) => objectType.id === parentObject?.typeId);
     const allowedType = parentType?.allowedChildTypeIds
@@ -134,6 +138,7 @@ function App() {
 
   const startObjectDraft = (kind: Extract<CreateEntityKind, 'rootObject' | 'childObject' | 'room'>, parentObjectId?: string | null) => {
     const parentId = kind === 'rootObject' ? null : parentObjectId ?? (selectedRef.kind === 'object' ? selectedRef.id : null);
+    const defaultTemplate = objectStructureTemplates[0];
     setPendingObjectDraft({
       kind,
       parentObjectId: parentId,
@@ -143,11 +148,14 @@ function App() {
       area: null,
       quantity: 1,
       unit: kind === 'rootObject' ? 'объект' : kind === 'room' ? 'помещение' : 'ед.',
+      creationMode: 'empty',
+      templateId: defaultTemplate?.id ?? '',
+      detailLevel: kind === 'rootObject' ? defaultTemplate?.detailLevel ?? 1 : 1,
     });
     setDetailsNotice({
       type: 'editHint',
       title: 'Создание объекта учета',
-      message: 'Выберите вид объекта в правой карточке. Если нужного вида нет, создайте его из этой же карточки.',
+      message: 'Выберите вид объекта или шаблон структуры в правой карточке. Если нужного вида нет, создайте его из этой же карточки.',
     });
   };
 
@@ -202,6 +210,22 @@ function App() {
 
   const confirmCreateObject = () => {
     if (!pendingObjectDraft) return;
+
+    if (pendingObjectDraft.kind === 'rootObject' && pendingObjectDraft.creationMode === 'template') {
+      const template = objectStructureTemplates.find((item) => item.id === pendingObjectDraft.templateId);
+      if (!template) {
+        setDetailsNotice({ type: 'moveBlocked', title: 'Шаблон не найден', message: 'Выберите другой шаблон структуры объекта.' });
+        return;
+      }
+
+      const generated = buildObjectsFromTemplate(template, pendingObjectDraft.name, pendingObjectDraft.detailLevel);
+      setObjects((prev) => [...prev, ...generated.objects]);
+      setSelectedRef({ kind: 'object', id: generated.rootObjectId });
+      setExpandedIds((prev) => new Set([...prev, ...generated.expandedObjectIds, generated.rootObjectId]));
+      resetRightPanel();
+      return;
+    }
+
     const id = `obj-${Date.now()}`;
     setObjects((prev) => [
       ...prev,
@@ -215,7 +239,7 @@ function App() {
         quantity: pendingObjectDraft.quantity,
         unit: pendingObjectDraft.unit,
         status: 'active',
-        parameters: {},
+        parameters: pendingObjectDraft.kind === 'rootObject' ? { detailLevel: normalizeDetailLevel(pendingObjectDraft.detailLevel) } : {},
       },
     ]);
     setSelectedRef({ kind: 'object', id });
@@ -429,6 +453,7 @@ function App() {
       detailsNotice={detailsNotice}
       objects={objects}
       objectTypes={objectTypes}
+      objectStructureTemplates={objectStructureTemplates}
       systems={systems}
       equipment={equipment}
       techCards={techCards}
@@ -458,7 +483,17 @@ function App() {
       onConfirmRetire={confirmRetireObject}
       onCancelRetire={() => setDetailsNotice(null)}
       onConfirmObjectTypeRetire={confirmRetireObjectType}
-      onUpdatePendingObjectDraft={(patch) => setPendingObjectDraft((prev) => (prev ? { ...prev, ...patch } : prev))}
+      onUpdatePendingObjectDraft={(patch) =>
+        setPendingObjectDraft((prev) => {
+          if (!prev) return prev;
+          const selectedTemplate = patch.templateId ? objectStructureTemplates.find((template) => template.id === patch.templateId) : undefined;
+          return {
+            ...prev,
+            ...patch,
+            ...(selectedTemplate ? { typeId: selectedTemplate.rootTypeId, detailLevel: selectedTemplate.detailLevel } : {}),
+          };
+        })
+      }
       onConfirmCreateObject={confirmCreateObject}
       onCancelPendingObjectDraft={resetRightPanel}
       onCreateObjectTypeForDraft={createObjectTypeForDraft}
