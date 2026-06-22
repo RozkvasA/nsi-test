@@ -6,6 +6,57 @@ export type ObjectStatus = 'active' | 'retired';
 
 export type TechCardTargetType = 'room' | 'system' | 'equipment';
 
+export type ParameterGroupId = 'main' | 'relations' | 'additional';
+
+export type TreeActionId = 'add' | 'edit' | 'move' | 'retire' | 'copy';
+
+export type CreateEntityKind = 'childObject' | 'room' | 'system' | 'equipment';
+
+export interface SelectedRef {
+  kind: EntityKind;
+  id: string;
+}
+
+export interface SelectedEntityView {
+  title: string;
+  subtitle: string;
+}
+
+export interface ParameterGroupView {
+  id: ParameterGroupId;
+  title: string;
+  hint: string;
+}
+
+export interface RetireImpact {
+  targetObjectId: string;
+  targetObjectName: string;
+  descendantCount: number;
+  affectedSystems: number;
+  affectedEquipment: number;
+  affectedTechCards: number;
+  affectedObjectIds: string[];
+}
+
+export type UiWarning =
+  | {
+      type: 'moveBlocked';
+      title: string;
+      message: string;
+    }
+  | {
+      type: 'moveMode';
+      title: string;
+      message: string;
+    }
+  | {
+      type: 'editHint';
+      title: string;
+      message: string;
+    };
+
+export type DetailsNotice = UiWarning | { type: 'retireConfirm'; impact: RetireImpact };
+
 export interface NsiSection {
   id: NsiSectionId;
   title: string;
