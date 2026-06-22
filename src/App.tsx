@@ -488,7 +488,16 @@ function App() {
         );
       }}
       onUpdateParameter={(typeId, parameterId, patch) =>
-        setObjectTypes((prev) => prev.map((type) => (type.id === typeId ? { ...type, parameters: type.parameters.map((parameter) => (parameter.id === parameterId ? { ...parameter, ...patch })) } : type)))
+        setObjectTypes((prev) =>
+          prev.map((type) =>
+            type.id === typeId
+              ? {
+                  ...type,
+                  parameters: type.parameters.map((parameter) => (parameter.id === parameterId ? { ...parameter, ...patch } : parameter)),
+                }
+              : type,
+          ),
+        )
       }
       onDeleteParameter={(typeId, parameterId) =>
         setObjectTypes((prev) =>
