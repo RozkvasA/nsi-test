@@ -10,7 +10,7 @@ export type ParameterGroupId = 'main' | 'relations' | 'additional';
 
 export type TreeActionId = 'add' | 'edit' | 'move' | 'retire' | 'copy';
 
-export type CreateEntityKind = 'childObject' | 'room' | 'system' | 'equipment';
+export type CreateEntityKind = 'rootObject' | 'childObject' | 'room' | 'system' | 'equipment';
 
 export type ParameterDataType = 'string' | 'number' | 'boolean' | 'date' | 'dictionary';
 
@@ -44,7 +44,7 @@ export interface ParameterGroupView {
 }
 
 export interface PendingObjectDraft {
-  kind: Extract<CreateEntityKind, 'childObject' | 'room'>;
+  kind: Extract<CreateEntityKind, 'rootObject' | 'childObject' | 'room'>;
   parentObjectId: string | null;
   name: string;
   shortName: string;
