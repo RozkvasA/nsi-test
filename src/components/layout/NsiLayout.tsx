@@ -28,6 +28,7 @@ interface NsiLayoutProps {
   sections: NsiSection[];
   activeSection: NsiSection;
   activeSectionId: NsiSectionId;
+  isDemoMode: boolean;
   searchQuery: string;
   sortAscending: boolean;
   childrenByParentId: Map<string | null, TreeNode[]>;
@@ -50,6 +51,7 @@ interface NsiLayoutProps {
   techCards: TechCard[];
   dictionaries: DictionaryItem[];
   selectedContextObjectId: string | null;
+  onToggleDemoMode: () => void;
   onSelectSection: (sectionId: NsiSectionId) => void;
   onOpenObjectInTree: (objectId: string) => void;
   onCreateRootFromTemplate: () => void;
@@ -108,6 +110,7 @@ export function NsiLayout({
   sections,
   activeSection,
   activeSectionId,
+  isDemoMode,
   searchQuery,
   sortAscending,
   childrenByParentId,
@@ -130,6 +133,7 @@ export function NsiLayout({
   techCards,
   dictionaries,
   selectedContextObjectId,
+  onToggleDemoMode,
   onSelectSection,
   onOpenObjectInTree,
   onCreateRootFromTemplate,
@@ -245,13 +249,20 @@ export function NsiLayout({
     <div className="app-shell">
       <header className="topbar">
         <div className="breadcrumbs" aria-label="Хлебные крошки"><span>НСИ</span><b>/</b><strong>{activeSection.title}</strong></div>
-        <div className="user-block" aria-label="Пользователь"><span className="user-avatar">УК</span><div><b>Администратор</b><small>рабочее место НСИ</small></div></div>
+        <div className="topbar-right">
+          <div className="demo-switch" title="Демо-режим сбрасывает текущие данные при переключении">
+            <span>Демо</span>
+            <button type="button" className={isDemoMode ? 'active' : ''} aria-pressed={isDemoMode} onClick={onToggleDemoMode}>{isDemoMode ? 'вкл' : 'выкл'}</button>
+            <small>сброс данных</small>
+          </div>
+          <div className="user-block" aria-label="Пользователь"><span className="user-avatar">УК</span><div><b>Администратор</b><small>рабочее место НСИ</small></div></div>
+        </div>
       </header>
 
       <div className={isSidebarCollapsed ? 'app-body sidebar-collapsed' : 'app-body'}>
         <aside className={isSidebarCollapsed ? 'sidebar collapsed' : 'sidebar'}>
           <div className="brand-block"><span className="brand-mark">НСИ</span><div className="brand-text"><h1>Модуль НСИ</h1><p>исходные данные</p></div></div>
-          <button type="button" className="sidebar-toggle" onClick={() => setIsSidebarCollapsed((value) => !value)}>{isSidebarCollapsed ? '→' : '←'}<span>{isSidebarCollapsed ? 'Развернуть меню' : 'Свернуть меню'}</span></button>
+          <button type="button" className="sidebar-toggle" title={isSidebarCollapsed ? 'Развернуть меню' : 'Свернуть меню'} aria-label={isSidebarCollapsed ? 'Развернуть меню' : 'Свернуть меню'} onClick={() => setIsSidebarCollapsed((value) => !value)}>{isSidebarCollapsed ? '→' : '←'}</button>
           <nav className="section-nav" aria-label="Разделы НСИ"><span className="nav-group-title">НСИ</span>{sections.map((section) => <button key={section.id} type="button" className={section.id === activeSectionId ? 'section-button active' : 'section-button'} onClick={() => onSelectSection(section.id)} title={section.title}><span className="section-icon">{sectionIcons[section.id]}</span><span className="section-label">{section.title}</span><small>{section.description}</small></button>)}</nav>
         </aside>
 
