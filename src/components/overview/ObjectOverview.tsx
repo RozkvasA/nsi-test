@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import type { EquipmentEntity, InfrastructureObject, ObjectType, SystemEntity, TechCard } from '../../types/nsi';
-import type { OverviewRoomItem, OverviewSystemItem } from '../../utils/nsiOverview';
+import type { OverviewEquipmentItem, OverviewRoomItem, OverviewSystemItem, OverviewTechCardItem } from '../../utils/nsiOverview';
 import { buildObjectOverviewCards } from '../../utils/nsiOverview';
 
 interface ObjectOverviewProps {
@@ -22,21 +22,18 @@ export function ObjectOverview({ objects, objectTypes, systems, equipment, techC
   const cards = buildObjectOverviewCards(objects, objectTypes, systems, equipment, techCards);
   const [expandedOverviewRootIds, setExpandedOverviewRootIds] = useState<Set<string>>(new Set());
   const [expandedOverviewNodeIds, setExpandedOverviewNodeIds] = useState<Set<string>>(new Set());
+  const [expandedOverviewDetailIds, setExpandedOverviewDetailIds] = useState<Set<string>>(new Set());
 
   const toggleRoot = (rootId: string) => {
-    setExpandedOverviewRootIds((prev) => {
-      const next = new Set(prev);
-      next.has(rootId) ? next.delete(rootId) : next.add(rootId);
-      return next;
-    });
+    setExpandedOverviewRootIds((prev) => toggleSetValue(prev, rootId));
   };
 
   const toggleNode = (nodeId: string) => {
-    setExpandedOverviewNodeIds((prev) => {
-      const next = new Set(prev);
-      next.has(nodeId) ? next.delete(nodeId) : next.add(nodeId);
-      return next;
-    });
+    setExpandedOverviewNodeIds((prev) => toggleSetValue(prev, nodeId));
+  };
+
+  const toggleDetail = (detailId: string) => {
+    setExpandedOverviewDetailIds((prev) => toggleSetValue(prev, detailId));
   };
 
   return (
@@ -84,15 +81,38 @@ export function ObjectOverview({ objects, objectTypes, systems, equipment, techC
                           <div className="overview-detail-main"><b>{node.name}</b><span>{node.typeName}</span></div>
                           <div className="overview-badges"><Badge label={`${node.detailChildren.length} узл.`} /></div>
                         </div>
+
                         {isNodeExpanded ? (
                           <div className="overview-level-children">
-                            {node.detailChildren.map((detailNode) => (
-                              <div className="overview-detail-row" key={detailNode.id}>
-                                <div className="overview-detail-main"><b>{detailNode.name}</b><span>{detailNode.typeName} · {detailNode.path}</span></div>
-                                <CompactBlock title="Помещения" emptyText="нет помещений" items={detailNode.rooms} renderItem={(room) => <RoomLine room={room} />} />
-                                <CompactBlock title="Системы" emptyText="нет систем" items={detailNode.systems} renderItem={(system) => <SystemLine system={system} />} />
-                              </div>
-                            ))}
+                            {node.detailChildren.map((detailNode) => {
+                              const isDetailExpanded = expandedOverviewDetailIds.has(detailNode.id);
+                              const detailArea = formatArea(detailNode.area);
+                              return (
+                                <div className={isDetailExpanded ? 'overview-detail-node expanded' : 'overview-detail-node'} key={detailNode.id}>
+                                  <div className="overview-detail-summary-row">
+                                    <button type="button" className="overview-expand-button" onClick={() => toggleDetail(detailNode.id)} aria-label={isDetailExpanded ? 'Свернуть объект' : 'Раскрыть объект'}>{isDetailExpanded ? '▾' : '▸'}</button>
+                                    <div className="overview-detail-main"><b>{detailNode.name}</b><span>{detailNode.typeName}</span></div>
+                                    <div className="overview-badges">
+                                      {detailArea ? <Badge label={detailArea} /> : null}
+                                      <Badge label={`${detailNode.roomsCount} помещ.`} />
+                                      <Badge label={`${detailNode.systemsCount} сист.`} />
+                                      <Badge label={`${detailNode.equipmentCount} обор.`} />
+                                      <Badge label={`${detailNode.techCardsCount} ТК`} />
+                                      {detailNode.warnings.length > 0 ? <Badge label={`${detailNode.warnings.length} пред.`} tone="warning" /> : null}
+                                    </div>
+                                  </div>
+
+                                  {isDetailExpanded ? (
+                                    <div className="overview-detail-row">
+                                      <CompactBlock title="Помещения" emptyText="нет помещений" items={detailNode.rooms} renderItem={(room) => <RoomLine room={room} />} />
+                                      <CompactBlock title="Системы" emptyText="нет систем" items={detailNode.systems} renderItem={(system) => <SystemLine system={system} />} />
+                                      {detailNode.equipment.length > 0 ? <CompactBlock title="Оборудование" emptyText="нет оборудования" items={detailNode.equipment} renderItem={(item) => <EquipmentLine item={item} />} /> : null}
+                                      {detailNode.techCards.length > 0 ? <CompactBlock title="Техкарты" emptyText="нет техкарт" items={detailNode.techCards} renderItem={(card) => <TechCardLine card={card} />} /> : null}
+                                    </div>
+                                  ) : null}
+                                </div>
+                              );
+                            })}
                           </div>
                         ) : null}
                       </div>
@@ -106,6 +126,12 @@ export function ObjectOverview({ objects, objectTypes, systems, equipment, techC
       </div>
     </section>
   );
+}
+
+function toggleSetValue(prev: Set<string>, id: string) {
+  const next = new Set(prev);
+  next.has(id) ? next.delete(id) : next.add(id);
+  return next;
 }
 
 function Badge({ label, tone }: { label: string; tone?: 'warning' }) {
@@ -124,4 +150,12 @@ function RoomLine({ room }: { room: OverviewRoomItem }) {
 
 function SystemLine({ system }: { system: OverviewSystemItem }) {
   return <><span>{system.name}</span><small>{system.scope} · {system.equipmentCount} обор.</small></>;
+}
+
+function EquipmentLine({ item }: { item: OverviewEquipmentItem }) {
+  return <><span>{item.name}</span><small>{item.typeName} · {item.quantity} {item.unit} · {item.placementName}</small></>;
+}
+
+function TechCardLine({ card }: { card: OverviewTechCardItem }) {
+  return <><span>{card.name}</span><small>{card.type} · {card.targetType}</small></>;
 }
