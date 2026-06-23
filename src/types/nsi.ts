@@ -1,4 +1,4 @@
-export type NsiSectionId = 'objects' | 'objectTypes' | 'techCards' | 'dictionaries';
+export type NsiSectionId = 'overview' | 'objects' | 'objectTypes' | 'techCards' | 'dictionaries';
 
 export type EntityKind = 'object' | 'objectType' | 'techCard' | 'dictionary';
 
