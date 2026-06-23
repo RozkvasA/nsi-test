@@ -256,7 +256,7 @@ export function NsiLayout({
         </aside>
 
         {activeSectionId === 'overview' ? (
-          <main className="work-area overview-work-area"><ObjectOverview objects={objects} objectTypes={objectTypes} systems={systems} equipment={equipment} techCards={techCards} onAddObject={() => onCreate('rootObject')} onCreateFromTemplate={onCreateRootFromTemplate} onOpenInTree={onOpenObjectInTree} />{detailsPanel}</main>
+          <main className="work-area overview-work-area overview-only-work-area"><ObjectOverview objects={objects} objectTypes={objectTypes} systems={systems} equipment={equipment} techCards={techCards} onAddObject={() => { onSelectSection('objects'); onCreate('rootObject'); }} onCreateFromTemplate={() => { onSelectSection('objects'); onCreateRootFromTemplate(); }} onOpenInTree={onOpenObjectInTree} /></main>
         ) : (
           <main className="work-area"><NsiTree activeSection={activeSection} activeSectionId={activeSectionId} searchQuery={searchQuery} sortAscending={sortAscending} childrenByParentId={childrenByParentId} expandedIds={expandedIds} selectedRef={selectedRef} pendingMoveRef={pendingMoveRef} onSetSearchQuery={onSetSearchQuery} onToggleSort={onToggleSort} onToggleExpanded={onToggleExpanded} onSelectNode={onSelectNode} onStartDrag={onStartDrag} onDropOnNode={onDropOnNode} onCreate={onCreate} onTreeAction={onTreeAction} onMoveToNode={onMoveToNode} onCancelMove={onCancelMove} />{detailsPanel}</main>
         )}
