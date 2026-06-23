@@ -26,6 +26,15 @@ export interface OverviewDetailNode {
   systems: OverviewSystemItem[];
 }
 
+export interface OverviewOutlineNode {
+  id: string;
+  name: string;
+  typeName: string;
+  path: string;
+  level: number;
+  detailChildren: OverviewDetailNode[];
+}
+
 export interface OverviewRootCard {
   id: string;
   name: string;
@@ -39,6 +48,7 @@ export interface OverviewRootCard {
   techCardsCount: number;
   warnings: string[];
   detailNodes: OverviewDetailNode[];
+  outlineNodes: OverviewOutlineNode[];
 }
 
 const getTypeName = (objectTypes: ObjectType[], typeId: string) => objectTypes.find((type) => type.id === typeId)?.name ?? 'Вид не задан';
@@ -101,13 +111,43 @@ function getRoomsForDetailNode(node: InfrastructureObject, objects: Infrastructu
   const subtreeObjects = objects.filter((object) => [node.id, ...getDescendantIds(objects, node.id)].includes(object.id));
   const items = subtreeObjects.filter((object) => object.id !== node.id && isZoneLikeObject(objectTypes, object));
 
-  return items.slice(0, 8).map((object) => ({
+  return items.map((object) => ({
     id: object.id,
     name: object.name,
     typeName: getTypeName(objectTypes, object.typeId),
     quantity: object.quantity,
     area: object.area,
   }));
+}
+
+function toDetailNode(node: InfrastructureObject, objects: InfrastructureObject[], objectTypes: ObjectType[], systems: SystemEntity[]): OverviewDetailNode {
+  return {
+    id: node.id,
+    name: node.name,
+    typeName: getTypeName(objectTypes, node.typeId),
+    path: getPath(objects, node.id),
+    rooms: getRoomsForDetailNode(node, objects, objectTypes),
+    systems: getApplicableSystems(node, objects, systems),
+  };
+}
+
+function buildOutlineNodes(root: InfrastructureObject, objects: InfrastructureObject[], objectTypes: ObjectType[], systems: SystemEntity[], detailLevel: number): OverviewOutlineNode[] {
+  const rootChildNodes = objects.filter((object) => object.parentId === root.id);
+
+  return rootChildNodes.map((child) => {
+    const childSubtreeIds = [child.id, ...getDescendantIds(objects, child.id)];
+    const detailCandidates = objects.filter((object) => childSubtreeIds.includes(object.id) && getObjectLevel(objects, object.id) === detailLevel);
+    const detailChildren = (detailCandidates.length > 0 ? detailCandidates : [child]).map((node) => toDetailNode(node, objects, objectTypes, systems));
+
+    return {
+      id: child.id,
+      name: child.name,
+      typeName: getTypeName(objectTypes, child.typeId),
+      path: getPath(objects, child.id),
+      level: getObjectLevel(objects, child.id),
+      detailChildren,
+    };
+  });
 }
 
 export function buildObjectOverviewCards(
@@ -142,14 +182,8 @@ export function buildObjectOverviewCards(
         equipmentCount: equipmentInBranch.length,
         techCardsCount: techCards.filter((card) => targetIdsForTechCards.has(card.targetId)).length,
         warnings,
-        detailNodes: (detailNodes.length > 0 ? detailNodes : [root]).map((node) => ({
-          id: node.id,
-          name: node.name,
-          typeName: getTypeName(objectTypes, node.typeId),
-          path: getPath(objects, node.id),
-          rooms: getRoomsForDetailNode(node, objects, objectTypes),
-          systems: getApplicableSystems(node, objects, systems),
-        })),
+        detailNodes: (detailNodes.length > 0 ? detailNodes : [root]).map((node) => toDetailNode(node, objects, objectTypes, systems)),
+        outlineNodes: buildOutlineNodes(root, objects, objectTypes, systems, detailLevel),
       };
     });
 }
