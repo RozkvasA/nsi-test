@@ -37,7 +37,9 @@
 .parameter-definition-card button,
 .mode-button,
 .secondary-action,
-.row-actions-inline button {
+.row-actions-inline button,
+.relation-check-row button,
+.system-fast-actions button {
   border: 1px solid #ccd9e3;
   border-radius: 10px;
   background: #f8fbfd;
@@ -57,13 +59,16 @@
 .mode-button:hover,
 .mode-button.active,
 .secondary-action:hover,
-.row-actions-inline button:hover {
+.row-actions-inline button:hover,
+.relation-check-row button:hover,
+.system-fast-actions button:hover {
   border-color: #b7def7;
   background: #eef8ff;
 }
 
 .action-menu button:disabled,
-.row-actions-inline button:disabled {
+.row-actions-inline button:disabled,
+.system-fast-actions button:disabled {
   cursor: not-allowed;
   opacity: 0.45;
 }
@@ -158,7 +163,8 @@
   font-weight: 900;
 }
 
-.mode-buttons {
+.mode-buttons,
+.system-fast-actions {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
@@ -183,4 +189,12 @@
 .warning-field small,
 .inline-warning p {
   color: #874d05;
+}
+
+.relation-check-row {
+  justify-content: flex-start;
+}
+
+.relation-check-row span {
+  flex: 1;
 }

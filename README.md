@@ -67,6 +67,16 @@
 - плотные формы карточек в паттерне label -> value/input;
 - адаптивное отображение без переноса основной навигации наверх.
 
+Этап 8 добавляет:
+
+- карточку системы как отдельной сущности;
+- вкладки системы: Параметры, Связи, Оборудование, Документы, Заметки;
+- создание системы через Дерево объектов без создания InfrastructureObject;
+- выбор системы из связей объекта с открытием правой карточки;
+- редактирование scopeType, scopeObjectIds и linkedRoomIds через чекбоксы и поиск;
+- добавление и отвязку оборудования внутри системы;
+- inline-предупреждения по системе.
+
 ## Структура интерфейса
 
 ```text
@@ -76,12 +86,14 @@ src/components/overview/ObjectOverview.tsx
 src/components/tree/NsiTree.tsx      центральное дерево и меню действий
 src/components/details/DetailsPanel.tsx
 src/components/details/ParameterContent.tsx
+src/components/details/SystemContent.tsx
 src/components/details/TechCardContent.tsx
 src/components/relations/RelationBlock.tsx
 src/utils/nsiTree.ts                 helpers дерева, поиска, сводок и проверок
 src/utils/nsiObjectParameters.ts     helpers динамических параметров объекта
 src/utils/nsiObjectTemplates.ts      helpers шаблонов и уровня детализации
 src/utils/nsiOverview.ts             helpers обзора объектов
+src/utils/nsiSystems.ts              helpers систем
 src/utils/nsiTechCards.ts            helpers технологических карт
 ```
 

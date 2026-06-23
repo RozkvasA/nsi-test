@@ -43,6 +43,7 @@ import {
   resolveSelectedEntity,
 } from './utils/nsiTree';
 import { buildObjectsFromTemplate, normalizeDetailLevel } from './utils/nsiObjectTemplates';
+import { createEquipmentForSystem, createSystemEntity } from './utils/nsiSystems';
 
 const tabs = ['Параметры', 'Документы', 'Заметки', 'Карта', 'Обслуживание'];
 
@@ -70,6 +71,7 @@ function App() {
   const [techCards, setTechCards] = useState<TechCard[]>(initialTechCards);
   const [dictionaries] = useState<DictionaryItem[]>(initialDictionaries);
   const [selectedRef, setSelectedRef] = useState<SelectedRef>({ kind: 'object', id: 'obj-root' });
+  const [selectedContextObjectId, setSelectedContextObjectId] = useState<string | null>('obj-root');
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
   const [sortAscending, setSortAscending] = useState(true);
@@ -82,16 +84,10 @@ function App() {
   const [detailsNotice, setDetailsNotice] = useState<DetailsNotice | null>(null);
 
   const activeSection = nsiSections.find((section) => section.id === activeSectionId) ?? nsiSections[0];
-  const treeNodes = useMemo(
-    () => buildTreeNodes(activeSectionId, objects, systems, equipment, techCards, dictionaries, objectTypes),
-    [activeSectionId, objects, systems, equipment, techCards, dictionaries, objectTypes],
-  );
+  const treeNodes = useMemo(() => buildTreeNodes(activeSectionId, objects, systems, equipment, techCards, dictionaries, objectTypes), [activeSectionId, objects, systems, equipment, techCards, dictionaries, objectTypes]);
   const filteredTreeNodes = useMemo(() => filterTreeNodes(treeNodes, searchQuery), [treeNodes, searchQuery]);
   const childrenByParentId = useMemo(() => groupTreeNodes(filteredTreeNodes, sortAscending), [filteredTreeNodes, sortAscending]);
-  const selectedEntity = useMemo(
-    () => resolveSelectedEntity(selectedRef, objects, systems, equipment, techCards, dictionaries, objectTypes),
-    [selectedRef, objects, systems, equipment, techCards, dictionaries, objectTypes],
-  );
+  const selectedEntity = useMemo(() => resolveSelectedEntity(selectedRef, objects, systems, equipment, techCards, dictionaries, objectTypes), [selectedRef, objects, systems, equipment, techCards, dictionaries, objectTypes]);
 
   const resetRightPanel = () => {
     setPendingObjectDraft(null);
@@ -104,28 +100,43 @@ function App() {
     const nextNodes = buildTreeNodes(sectionId, objects, systems, equipment, techCards, dictionaries, objectTypes);
     const firstRootObject = objects.find((object) => object.parentId === null);
     setActiveSectionId(sectionId);
-    setSelectedRef(
-      sectionId === 'overview'
-        ? { kind: 'object', id: firstRootObject?.id ?? '' }
-        : { kind: nextKindBySection[sectionId], id: nextNodes[0]?.id ?? '' },
-    );
+    setSelectedRef(sectionId === 'overview' ? { kind: 'object', id: firstRootObject?.id ?? '' } : { kind: nextKindBySection[sectionId], id: nextNodes[0]?.id ?? '' });
+    setSelectedContextObjectId(sectionId === 'overview' ? firstRootObject?.id ?? null : sectionId === 'objects' ? nextNodes[0]?.id ?? null : selectedContextObjectId);
     setSearchQuery('');
     setExpandedIds(new Set());
     setPendingMoveRef(null);
     resetRightPanel();
   };
 
-  const toggleExpanded = (nodeId: string) => {
-    setExpandedIds((prev) => {
-      const next = new Set(prev);
-      next.has(nodeId) ? next.delete(nodeId) : next.add(nodeId);
-      return next;
-    });
-  };
+  const toggleExpanded = (nodeId: string) => setExpandedIds((prev) => {
+    const next = new Set(prev);
+    next.has(nodeId) ? next.delete(nodeId) : next.add(nodeId);
+    return next;
+  });
 
   const handleSelectNode = (node: TreeNode) => {
     setSelectedRef({ kind: node.entityKind, id: node.id });
+    if (node.entityKind === 'object') setSelectedContextObjectId(node.id);
     setPendingObjectDraft(null);
+    setActiveTab('Параметры');
+    setActiveGroupId('main');
+  };
+
+  const handleSelectSystem = (systemId: string, contextObjectId?: string | null) => {
+    setSelectedRef({ kind: 'system', id: systemId });
+    if (contextObjectId !== undefined) setSelectedContextObjectId(contextObjectId);
+    setPendingObjectDraft(null);
+    setDetailsNotice(null);
+    setActiveTab('Параметры');
+    setActiveGroupId('main');
+  };
+
+  const handleSelectEquipment = (equipmentId: string) => {
+    const item = equipment.find((equipmentItem) => equipmentItem.id === equipmentId);
+    setSelectedRef({ kind: 'equipment', id: equipmentId });
+    if (item?.placementObjectId) setSelectedContextObjectId(item.placementObjectId);
+    setPendingObjectDraft(null);
+    setDetailsNotice(null);
     setActiveTab('Параметры');
     setActiveGroupId('main');
   };
@@ -136,58 +147,33 @@ function App() {
     if (kind === 'rootObject') return objectStructureTemplates[0]?.rootTypeId ?? objectTypes.find((objectType) => objectType.code === 'INFRA_OBJECT')?.id ?? firstTypeId;
     const parentObject = objects.find((item) => item.id === parentObjectId);
     const parentType = objectTypes.find((objectType) => objectType.id === parentObject?.typeId);
-    const allowedType = parentType?.allowedChildTypeIds
-      .map((id) => objectTypes.find((objectType) => objectType.id === id))
-      .find((objectType): objectType is ObjectType => objectType !== undefined && objectType.code !== 'SYSTEM' && objectType.code !== 'EQUIPMENT');
+    const allowedType = parentType?.allowedChildTypeIds.map((id) => objectTypes.find((objectType) => objectType.id === id)).find((objectType): objectType is ObjectType => objectType !== undefined && objectType.code !== 'SYSTEM' && objectType.code !== 'EQUIPMENT');
     const fallbackType = objectTypes.find((objectType) => objectType.code !== 'SYSTEM' && objectType.code !== 'EQUIPMENT');
     return allowedType?.id ?? fallbackType?.id ?? firstTypeId;
   };
 
-  const startObjectDraft = (
-    kind: Extract<CreateEntityKind, 'rootObject' | 'childObject' | 'room'>,
-    parentObjectId?: string | null,
-    creationMode: RootObjectCreationMode = 'empty',
-  ) => {
+  const startObjectDraft = (kind: Extract<CreateEntityKind, 'rootObject' | 'childObject' | 'room'>, parentObjectId?: string | null, creationMode: RootObjectCreationMode = 'empty') => {
     const parentId = kind === 'rootObject' ? null : parentObjectId ?? (selectedRef.kind === 'object' ? selectedRef.id : null);
     const defaultTemplate = objectStructureTemplates[0];
-    setPendingObjectDraft({
-      kind,
-      parentObjectId: parentId,
-      name: kind === 'rootObject' ? 'Новый корневой объект' : kind === 'room' ? 'Новое помещение' : 'Новый объект учета',
-      shortName: kind === 'rootObject' ? 'Объект' : kind === 'room' ? 'Помещение' : 'Новый',
-      typeId: pickDefaultTypeId(kind, parentId),
-      area: null,
-      quantity: 1,
-      unit: kind === 'rootObject' ? 'объект' : kind === 'room' ? 'помещение' : 'ед.',
-      creationMode,
-      templateId: defaultTemplate?.id ?? '',
-      detailLevel: kind === 'rootObject' ? defaultTemplate?.detailLevel ?? 1 : 1,
-    });
-    setDetailsNotice({
-      type: 'editHint',
-      title: 'Создание объекта учета',
-      message: 'Выберите вид объекта или шаблон структуры в правой карточке. Если нужного вида нет, создайте его из этой же карточки.',
-    });
+    setPendingObjectDraft({ kind, parentObjectId: parentId, name: kind === 'rootObject' ? 'Новый корневой объект' : kind === 'room' ? 'Новое помещение' : 'Новый объект учета', shortName: kind === 'rootObject' ? 'Объект' : kind === 'room' ? 'Помещение' : 'Новый', typeId: pickDefaultTypeId(kind, parentId), area: null, quantity: 1, unit: kind === 'rootObject' ? 'объект' : kind === 'room' ? 'помещение' : 'ед.', creationMode, templateId: defaultTemplate?.id ?? '', detailLevel: kind === 'rootObject' ? defaultTemplate?.detailLevel ?? 1 : 1 });
+    setDetailsNotice({ type: 'editHint', title: 'Создание объекта учета', message: 'Выберите вид объекта или шаблон структуры в правой карточке. Если нужного вида нет, создайте его из этой же карточки.' });
   };
 
-  const handleCreateRootFromTemplate = () => {
-    startObjectDraft('rootObject', null, 'template');
-  };
+  const handleCreateRootFromTemplate = () => startObjectDraft('rootObject', null, 'template');
 
   const openObjectInTree = (objectId: string) => {
     const ancestorIds: string[] = [];
     let current = objects.find((object) => object.id === objectId);
     const visited = new Set<string>();
-
     while (current?.parentId) {
       if (visited.has(current.id)) break;
       visited.add(current.id);
       ancestorIds.push(current.parentId);
       current = objects.find((object) => object.id === current?.parentId);
     }
-
     setActiveSectionId('objects');
     setSelectedRef({ kind: 'object', id: objectId });
+    setSelectedContextObjectId(objectId);
     setExpandedIds((prev) => new Set([...prev, ...ancestorIds]));
     setPendingMoveRef(null);
     resetRightPanel();
@@ -196,30 +182,12 @@ function App() {
   const createObjectTypeSeed = (parentTypeId: string | null, name = 'Новый вид объекта'): ObjectType => {
     const createdAt = Date.now();
     const nameParamId = `param-name-${createdAt}`;
-    return {
-      id: `type-${createdAt}`,
-      name,
-      code: `TYPE_${createdAt}`,
-      shortName: 'Новый',
-      icon: '□',
-      parentTypeId,
-      allowedChildTypeIds: [],
-      parameterGroups: [{ id: `group-main-${createdAt}`, name: 'Основные', parameterIds: [nameParamId] }],
-      parameters: [{ id: nameParamId, name: 'Наименование', code: 'name', dataType: 'string', unit: '', required: true, showInTree: true, defaultValue: '' }],
-      canCreateObjects: true,
-      canEditObjects: true,
-      canRetireObjects: true,
-    };
+    return { id: `type-${createdAt}`, name, code: `TYPE_${createdAt}`, shortName: 'Новый', icon: '□', parentTypeId, allowedChildTypeIds: [], parameterGroups: [{ id: `group-main-${createdAt}`, name: 'Основные', parameterIds: [nameParamId] }], parameters: [{ id: nameParamId, name: 'Наименование', code: 'name', dataType: 'string', unit: '', required: true, showInTree: true, defaultValue: '' }], canCreateObjects: true, canEditObjects: true, canRetireObjects: true };
   };
 
   const addObjectType = (parentTypeId: string | null, name?: string) => {
     const nextType = createObjectTypeSeed(parentTypeId, name);
-    setObjectTypes((prev) => [
-      ...prev.map((type) =>
-        parentTypeId && type.id === parentTypeId ? { ...type, allowedChildTypeIds: Array.from(new Set([...type.allowedChildTypeIds, nextType.id])) } : type,
-      ),
-      nextType,
-    ]);
+    setObjectTypes((prev) => [...prev.map((type) => parentTypeId && type.id === parentTypeId ? { ...type, allowedChildTypeIds: Array.from(new Set([...type.allowedChildTypeIds, nextType.id])) } : type), nextType]);
     setSelectedRef({ kind: 'objectType', id: nextType.id });
     setActiveSectionId('objectTypes');
     setActiveTab('Параметры');
@@ -232,128 +200,101 @@ function App() {
     if (!pendingObjectDraft) return;
     const parentObject = objects.find((item) => item.id === pendingObjectDraft.parentObjectId);
     const nextType = createObjectTypeSeed(parentObject?.typeId ?? null, 'Новый вид для объекта');
-    setObjectTypes((prev) => [
-      ...prev.map((type) =>
-        parentObject?.typeId && type.id === parentObject.typeId ? { ...type, allowedChildTypeIds: Array.from(new Set([...type.allowedChildTypeIds, nextType.id])) } : type,
-      ),
-      nextType,
-    ]);
+    setObjectTypes((prev) => [...prev.map((type) => parentObject?.typeId && type.id === parentObject.typeId ? { ...type, allowedChildTypeIds: Array.from(new Set([...type.allowedChildTypeIds, nextType.id])) } : type), nextType]);
     setPendingObjectDraft((prev) => (prev ? { ...prev, typeId: nextType.id } : prev));
     setDetailsNotice({ type: 'editHint', title: 'Создан новый вид объекта', message: 'Новый вид добавлен в Дерево видов объектов и выбран для создаваемого объекта учета.' });
   };
 
+  const createSystemTypeForSystem = (systemId: string) => {
+    const parentSystemTypeId = objectTypes.find((type) => type.code === 'SYSTEM')?.id ?? null;
+    const nextType = createObjectTypeSeed(parentSystemTypeId, 'Новый вид системы');
+    setObjectTypes((prev) => [...prev.map((type) => parentSystemTypeId && type.id === parentSystemTypeId ? { ...type, allowedChildTypeIds: Array.from(new Set([...type.allowedChildTypeIds, nextType.id])) } : type), nextType]);
+    setSystems((prev) => prev.map((system) => (system.id === systemId ? { ...system, typeId: nextType.id } : system)));
+    setDetailsNotice({ type: 'editHint', title: 'Создан новый вид системы', message: 'Вид добавлен в Дерево видов объектов и выбран для текущей системы.' });
+  };
+
   const confirmCreateObject = () => {
     if (!pendingObjectDraft) return;
-
     if (pendingObjectDraft.kind === 'rootObject' && pendingObjectDraft.creationMode === 'template') {
       const template = objectStructureTemplates.find((item) => item.id === pendingObjectDraft.templateId);
-      if (!template) {
-        setDetailsNotice({ type: 'moveBlocked', title: 'Шаблон не найден', message: 'Выберите другой шаблон структуры объекта.' });
-        return;
-      }
-
+      if (!template) { setDetailsNotice({ type: 'moveBlocked', title: 'Шаблон не найден', message: 'Выберите другой шаблон структуры объекта.' }); return; }
       const generated = buildObjectsFromTemplate(template, pendingObjectDraft.name, pendingObjectDraft.detailLevel);
       setObjects((prev) => [...prev, ...generated.objects]);
       setSelectedRef({ kind: 'object', id: generated.rootObjectId });
+      setSelectedContextObjectId(generated.rootObjectId);
       setExpandedIds((prev) => new Set([...prev, ...generated.expandedObjectIds, generated.rootObjectId]));
       resetRightPanel();
       return;
     }
-
     const id = `obj-${Date.now()}`;
-    setObjects((prev) => [
-      ...prev,
-      {
-        id,
-        name: pendingObjectDraft.name,
-        shortName: pendingObjectDraft.shortName,
-        typeId: pendingObjectDraft.typeId,
-        parentId: pendingObjectDraft.parentObjectId,
-        area: pendingObjectDraft.area,
-        quantity: pendingObjectDraft.quantity,
-        unit: pendingObjectDraft.unit,
-        status: 'active',
-        parameters: pendingObjectDraft.kind === 'rootObject' ? { detailLevel: normalizeDetailLevel(pendingObjectDraft.detailLevel) } : {},
-      },
-    ]);
+    setObjects((prev) => [...prev, { id, name: pendingObjectDraft.name, shortName: pendingObjectDraft.shortName, typeId: pendingObjectDraft.typeId, parentId: pendingObjectDraft.parentObjectId, area: pendingObjectDraft.area, quantity: pendingObjectDraft.quantity, unit: pendingObjectDraft.unit, status: 'active', parameters: pendingObjectDraft.kind === 'rootObject' ? { detailLevel: normalizeDetailLevel(pendingObjectDraft.detailLevel) } : {} }]);
     setSelectedRef({ kind: 'object', id });
+    setSelectedContextObjectId(id);
     if (pendingObjectDraft.parentObjectId) setExpandedIds((prev) => new Set(prev).add(pendingObjectDraft.parentObjectId as string));
     resetRightPanel();
   };
 
   const handleCreate = (kind: CreateEntityKind, parentObjectId?: string | null) => {
-    if (kind === 'rootObject' || kind === 'childObject' || kind === 'room') {
-      startObjectDraft(kind, parentObjectId);
-      return;
-    }
-
-    const parentId = parentObjectId ?? (selectedRef.kind === 'object' ? selectedRef.id : null);
+    if (kind === 'rootObject' || kind === 'childObject' || kind === 'room') { startObjectDraft(kind, parentObjectId); return; }
+    const parentId = parentObjectId ?? (selectedRef.kind === 'object' ? selectedRef.id : selectedContextObjectId);
     const parent = objects.find((item) => item.id === parentId);
     const createdAt = Date.now();
 
     if (kind === 'system') {
-      const id = `sys-${createdAt}`;
-      setSystems((prev) => [
-        ...prev,
-        {
-          id,
-          name: 'Новая система',
-          typeId: objectTypes.find((type) => type.code === 'SYSTEM')?.id ?? 'type-system',
-          parentSystemId: null,
-          scopeType: 'objectNode',
-          scopeObjectIds: parentId ? [parentId] : [],
-          linkedRoomIds: parent && isRoomType(parent.typeId, objectTypes) ? [parent.id] : [],
-          equipmentIds: [],
-          quantity: 1,
-          unit: 'система',
-          parameters: { serviceZone: parent?.name ?? 'Не задано', criticality: null },
-        },
-      ]);
-      setActiveGroupId('relations');
-      setDetailsNotice({ type: 'editHint', title: 'Система добавлена', message: 'Новая система создана отдельной сущностью и привязана к выбранной области.' });
+      const system = createSystemEntity({ createdAt, typeId: objectTypes.find((type) => type.code === 'SYSTEM')?.id ?? 'type-system', parentObject: parent ?? null, isRoom: parent ? isRoomType(parent.typeId, objectTypes) : false });
+      setSystems((prev) => [...prev, system]);
+      setSelectedRef({ kind: 'system', id: system.id });
+      setSelectedContextObjectId(parentId ?? null);
+      setActiveTab('Параметры');
+      setActiveGroupId('main');
+      setDetailsNotice({ type: 'editHint', title: 'Система добавлена', message: 'Новая система создана отдельной сущностью и открыта в правой карточке.' });
       return;
     }
 
-    const id = `eq-${createdAt}`;
-    const fallbackSystemId = systems[0]?.id ?? `sys-auto-${createdAt}`;
+    const fallbackSystemId = selectedRef.kind === 'system' ? selectedRef.id : systems[0]?.id ?? `sys-auto-${createdAt}`;
     const placementObjectId = parentId ?? objects[0]?.id ?? 'obj-root';
+    const equipmentItem = createEquipmentForSystem({ createdAt, systemId: fallbackSystemId, typeId: objectTypes.find((type) => type.code === 'EQUIPMENT')?.id ?? 'type-equipment', placementObjectId });
 
     if (systems.length === 0) {
-      setSystems([
-        {
-          id: fallbackSystemId,
-          name: 'Система для оборудования',
-          typeId: objectTypes.find((type) => type.code === 'SYSTEM')?.id ?? 'type-system',
-          parentSystemId: null,
-          scopeType: 'objectNode',
-          scopeObjectIds: [placementObjectId],
-          linkedRoomIds: [],
-          equipmentIds: [id],
-          quantity: 1,
-          unit: 'система',
-          parameters: { serviceZone: 'Создано автоматически для оборудования', criticality: null },
-        },
-      ]);
+      setSystems([{ id: fallbackSystemId, name: 'Система для оборудования', typeId: objectTypes.find((type) => type.code === 'SYSTEM')?.id ?? 'type-system', parentSystemId: null, scopeType: 'objectNode', scopeObjectIds: [placementObjectId], linkedRoomIds: [], equipmentIds: [equipmentItem.id], quantity: 1, unit: 'система', parameters: { serviceZone: 'Создано автоматически для оборудования', criticality: null } }]);
     } else {
-      setSystems((prev) => prev.map((system) => (system.id === fallbackSystemId ? { ...system, equipmentIds: [...system.equipmentIds, id] } : system)));
+      setSystems((prev) => prev.map((system) => (system.id === fallbackSystemId ? { ...system, equipmentIds: Array.from(new Set([...system.equipmentIds, equipmentItem.id])) } : system)));
     }
+    setEquipment((prev) => [...prev, equipmentItem]);
+    handleSelectEquipment(equipmentItem.id);
+    setDetailsNotice({ type: 'editHint', title: 'Оборудование добавлено', message: 'Оборудование создано внутри системы и размещено на выбранном объекте учета. Полная карточка оборудования будет следующим этапом.' });
+  };
 
-    setEquipment((prev) => [
-      ...prev,
-      {
-        id,
-        name: 'Новое оборудование',
-        typeId: objectTypes.find((type) => type.code === 'EQUIPMENT')?.id ?? 'type-equipment',
-        parentEquipmentId: null,
-        systemId: fallbackSystemId,
-        placementObjectId,
-        quantity: 1,
-        unit: 'шт.',
-        parameters: { manufacturer: null, inventoryNumber: null },
-      },
-    ]);
-    setActiveGroupId('relations');
-    setDetailsNotice({ type: 'editHint', title: 'Оборудование добавлено', message: 'Оборудование создано внутри системы и размещено на выбранном объекте учета.' });
+  const addEquipmentToSystem = (systemId: string) => {
+    const createdAt = Date.now();
+    const placementObjectId = selectedContextObjectId ?? objects[0]?.id ?? 'obj-root';
+    const equipmentItem = createEquipmentForSystem({ createdAt, systemId, typeId: objectTypes.find((type) => type.code === 'EQUIPMENT')?.id ?? 'type-equipment', placementObjectId });
+    setEquipment((prev) => [...prev, equipmentItem]);
+    setSystems((prev) => prev.map((system) => (system.id === systemId ? { ...system, equipmentIds: Array.from(new Set([...system.equipmentIds, equipmentItem.id])) } : system)));
+    setSelectedRef({ kind: 'system', id: systemId });
+    setActiveTab('Оборудование');
+  };
+
+  const detachEquipmentFromSystem = (systemId: string, equipmentId: string) => {
+    setSystems((prev) => prev.map((system) => (system.id === systemId ? { ...system, equipmentIds: system.equipmentIds.filter((id) => id !== equipmentId) } : system)));
+    setEquipment((prev) => prev.map((item) => (item.id === equipmentId ? { ...item, systemId: '' } : item)));
+  };
+
+  const linkSystemToContextObject = (systemId: string) => {
+    const contextObject = selectedContextObjectId ? objects.find((object) => object.id === selectedContextObjectId) : null;
+    if (!contextObject) return;
+    setSystems((prev) => prev.map((system) => {
+      if (system.id !== systemId) return system;
+      if (isRoomType(contextObject.typeId, objectTypes)) return { ...system, scopeType: 'singleRoom', linkedRoomIds: Array.from(new Set([...system.linkedRoomIds, contextObject.id])) };
+      return { ...system, scopeType: 'objectNode', scopeObjectIds: Array.from(new Set([...system.scopeObjectIds, contextObject.id])) };
+    }));
+  };
+
+  const linkSystemToRoomsInContext = (systemId: string) => {
+    if (!selectedContextObjectId) return;
+    const ids = [selectedContextObjectId, ...buildDescendantIds(objects, selectedContextObjectId)];
+    const roomIds = objects.filter((object) => ids.includes(object.id) && isRoomType(object.typeId, objectTypes)).map((object) => object.id);
+    setSystems((prev) => prev.map((system) => (system.id === systemId ? { ...system, scopeType: 'multipleRooms', linkedRoomIds: Array.from(new Set([...system.linkedRoomIds, ...roomIds])) } : system)));
   };
 
   const copyObject = (objectId: string) => {
@@ -362,24 +303,14 @@ function App() {
     const id = `obj-copy-${Date.now()}`;
     setObjects((prev) => [...prev, { ...source, id, name: `${source.name} копия`, shortName: `${source.shortName} копия`, parameters: { ...source.parameters }, status: 'active' }]);
     setSelectedRef({ kind: 'object', id });
+    setSelectedContextObjectId(id);
   };
 
   const copyObjectType = (typeId: string) => {
     const source = objectTypes.find((item) => item.id === typeId);
     if (!source) return;
     const createdAt = Date.now();
-    const copy: ObjectType = {
-      ...source,
-      id: `type-copy-${createdAt}`,
-      name: `${source.name} копия`,
-      code: `${source.code}_COPY_${createdAt}`,
-      shortName: `${source.shortName} копия`,
-      parentTypeId: source.parentTypeId,
-      allowedChildTypeIds: [...source.allowedChildTypeIds],
-      parameterGroups: source.parameterGroups.map((group) => ({ ...group, id: `${group.id}-copy-${createdAt}`, parameterIds: group.parameterIds.map((id) => `${id}-copy-${createdAt}`) })),
-      parameters: source.parameters.map((parameter) => ({ ...parameter, id: `${parameter.id}-copy-${createdAt}`, code: `${parameter.code}_copy_${createdAt}` })),
-    };
-
+    const copy: ObjectType = { ...source, id: `type-copy-${createdAt}`, name: `${source.name} копия`, code: `${source.code}_COPY_${createdAt}`, shortName: `${source.shortName} копия`, parentTypeId: source.parentTypeId, allowedChildTypeIds: [...source.allowedChildTypeIds], parameterGroups: source.parameterGroups.map((group) => ({ ...group, id: `${group.id}-copy-${createdAt}`, parameterIds: group.parameterIds.map((id) => `${id}-copy-${createdAt}`) })), parameters: source.parameters.map((parameter) => ({ ...parameter, id: `${parameter.id}-copy-${createdAt}`, code: `${parameter.code}_copy_${createdAt}` })) };
     setObjectTypes((prev) => [...prev, copy]);
     setSelectedRef({ kind: 'objectType', id: copy.id });
   };
@@ -388,6 +319,7 @@ function App() {
     const impact = getRetireImpact(objectId, objects, systems, equipment, techCards);
     if (impact) setDetailsNotice({ type: 'retireConfirm', impact });
     setSelectedRef({ kind: 'object', id: objectId });
+    setSelectedContextObjectId(objectId);
   };
 
   const confirmRetireObject = () => {
@@ -410,28 +342,16 @@ function App() {
   };
 
   const moveSelectedRefToNode = (sourceRef: SelectedRef, targetNode: TreeNode) => {
-    if (sourceRef.kind !== targetNode.entityKind) {
-      setDetailsNotice({ type: 'moveBlocked', title: 'Перенос невозможен', message: 'Нельзя переносить элементы между разными деревьями.' });
-      return;
-    }
-    if (sourceRef.id === targetNode.id) {
-      setDetailsNotice({ type: 'moveBlocked', title: 'Перенос невозможен', message: 'Нельзя перенести элемент внутрь самого себя.' });
-      return;
-    }
+    if (sourceRef.kind !== targetNode.entityKind) { setDetailsNotice({ type: 'moveBlocked', title: 'Перенос невозможен', message: 'Нельзя переносить элементы между разными деревьями.' }); return; }
+    if (sourceRef.id === targetNode.id) { setDetailsNotice({ type: 'moveBlocked', title: 'Перенос невозможен', message: 'Нельзя перенести элемент внутрь самого себя.' }); return; }
     if (sourceRef.kind === 'object') {
       const descendants = buildDescendantIds(objects, sourceRef.id);
-      if (descendants.includes(targetNode.id)) {
-        setDetailsNotice({ type: 'moveBlocked', title: 'Перенос невозможен', message: 'Нельзя перенести объект внутрь собственного дочернего элемента.' });
-        return;
-      }
+      if (descendants.includes(targetNode.id)) { setDetailsNotice({ type: 'moveBlocked', title: 'Перенос невозможен', message: 'Нельзя перенести объект внутрь собственного дочернего элемента.' }); return; }
       setObjects((prev) => prev.map((item) => (item.id === sourceRef.id ? { ...item, parentId: targetNode.id } : item)));
     }
     if (sourceRef.kind === 'objectType') {
       const descendants = buildObjectTypeDescendantIds(objectTypes, sourceRef.id);
-      if (descendants.includes(targetNode.id)) {
-        setDetailsNotice({ type: 'moveBlocked', title: 'Перенос невозможен', message: 'Нельзя перенести вид объекта внутрь собственного дочернего вида.' });
-        return;
-      }
+      if (descendants.includes(targetNode.id)) { setDetailsNotice({ type: 'moveBlocked', title: 'Перенос невозможен', message: 'Нельзя перенести вид объекта внутрь собственного дочернего вида.' }); return; }
       setObjectTypes((prev) => prev.map((item) => (item.id === sourceRef.id ? { ...item, parentTypeId: targetNode.id } : item)));
     }
     setExpandedIds((prev) => new Set(prev).add(targetNode.id));
@@ -448,10 +368,7 @@ function App() {
   const handleTreeAction = (node: TreeNode, actionId: TreeActionId) => {
     const actualNode = treeNodes.find((item) => item.entityKind === node.entityKind && item.id === node.id) ?? node;
     handleSelectNode(actualNode);
-    if (actionId === 'edit') {
-      setDetailsNotice({ type: 'editHint', title: 'Редактирование открыто в карточке', message: 'Поля выбранного элемента меняются справа во вкладке Параметры.' });
-      return;
-    }
+    if (actionId === 'edit') { setDetailsNotice({ type: 'editHint', title: 'Редактирование открыто в карточке', message: 'Поля выбранного элемента меняются справа во вкладке Параметры.' }); return; }
     if (actualNode.entityKind === 'object') {
       if (actionId === 'move') startMove({ kind: 'object', id: actualNode.id });
       if (actionId === 'retire') requestRetireObject(actualNode.id);
@@ -492,6 +409,7 @@ function App() {
       equipment={equipment}
       techCards={techCards}
       dictionaries={dictionaries}
+      selectedContextObjectId={selectedContextObjectId}
       onSelectSection={selectSection}
       onOpenObjectInTree={openObjectInTree}
       onCreateRootFromTemplate={handleCreateRootFromTemplate}
@@ -500,18 +418,11 @@ function App() {
       onToggleExpanded={toggleExpanded}
       onSelectNode={handleSelectNode}
       onStartDrag={(node) => setDraggedRef({ kind: node.entityKind, id: node.id })}
-      onDropOnNode={(node) => {
-        if (!draggedRef) return;
-        moveSelectedRefToNode(draggedRef, node);
-        setDraggedRef(null);
-      }}
+      onDropOnNode={(node) => { if (!draggedRef) return; moveSelectedRefToNode(draggedRef, node); setDraggedRef(null); }}
       onCreate={handleCreate}
       onTreeAction={handleTreeAction}
       onMoveToNode={(node) => pendingMoveRef && moveSelectedRefToNode(pendingMoveRef, node)}
-      onCancelMove={() => {
-        setPendingMoveRef(null);
-        setDetailsNotice(null);
-      }}
+      onCancelMove={() => { setPendingMoveRef(null); setDetailsNotice(null); }}
       onSetActiveTab={setActiveTab}
       onSetActiveGroupId={setActiveGroupId}
       onSetShowEmpty={setShowEmpty}
@@ -519,88 +430,30 @@ function App() {
       onConfirmRetire={confirmRetireObject}
       onCancelRetire={() => setDetailsNotice(null)}
       onConfirmObjectTypeRetire={confirmRetireObjectType}
-      onUpdatePendingObjectDraft={(patch) =>
-        setPendingObjectDraft((prev) => {
-          if (!prev) return prev;
-          const selectedTemplate = patch.templateId ? objectStructureTemplates.find((template) => template.id === patch.templateId) : undefined;
-          return {
-            ...prev,
-            ...patch,
-            ...(selectedTemplate ? { typeId: selectedTemplate.rootTypeId, detailLevel: selectedTemplate.detailLevel } : {}),
-          };
-        })
-      }
+      onUpdatePendingObjectDraft={(patch) => setPendingObjectDraft((prev) => { if (!prev) return prev; const selectedTemplate = patch.templateId ? objectStructureTemplates.find((template) => template.id === patch.templateId) : undefined; return { ...prev, ...patch, ...(selectedTemplate ? { typeId: selectedTemplate.rootTypeId, detailLevel: selectedTemplate.detailLevel } : {}) }; })}
       onConfirmCreateObject={confirmCreateObject}
       onCancelPendingObjectDraft={resetRightPanel}
       onCreateObjectTypeForDraft={createObjectTypeForDraft}
       onUpdateObject={(id, patch) => setObjects((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)))}
       onUpdateObjectType={(id, patch) => setObjectTypes((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)))}
-      onToggleAllowedChildType={(typeId, childTypeId) => {
-        setObjectTypes((prev) =>
-          prev.map((type) => {
-            if (type.id !== typeId) return type;
-            const exists = type.allowedChildTypeIds.includes(childTypeId);
-            return { ...type, allowedChildTypeIds: exists ? type.allowedChildTypeIds.filter((id) => id !== childTypeId) : [...type.allowedChildTypeIds, childTypeId] };
-          }),
-        );
-      }}
-      onAddParameterGroup={(typeId) => {
-        const id = `group-${Date.now()}`;
-        setObjectTypes((prev) => prev.map((type) => (type.id === typeId ? { ...type, parameterGroups: [...type.parameterGroups, { id, name: 'Новая группа', parameterIds: [] }] } : type)));
-      }}
-      onRenameParameterGroup={(typeId, groupId, name) =>
-        setObjectTypes((prev) => prev.map((type) => (type.id === typeId ? { ...type, parameterGroups: type.parameterGroups.map((group) => (group.id === groupId ? { ...group, name } : group)) } : type)))
-      }
-      onAddParameterToGroup={(typeId, groupId) => {
-        const createdAt = Date.now();
-        const parameter: ParameterDefinition = { id: `param-${createdAt}`, name: 'Новый параметр', code: `param_${createdAt}`, dataType: 'string', unit: '', required: false, showInTree: false, defaultValue: null };
-        setObjectTypes((prev) =>
-          prev.map((type) =>
-            type.id === typeId
-              ? { ...type, parameters: [...type.parameters, parameter], parameterGroups: type.parameterGroups.map((group) => (group.id === groupId ? { ...group, parameterIds: [...group.parameterIds, parameter.id] } : group)) }
-              : type,
-          ),
-        );
-      }}
-      onUpdateParameter={(typeId, parameterId, patch) =>
-        setObjectTypes((prev) => prev.map((type) => (type.id === typeId ? { ...type, parameters: type.parameters.map((parameter) => (parameter.id === parameterId ? { ...parameter, ...patch } : parameter)) } : type)))
-      }
-      onDeleteParameter={(typeId, parameterId) =>
-        setObjectTypes((prev) =>
-          prev.map((type) =>
-            type.id === typeId
-              ? { ...type, parameters: type.parameters.filter((parameter) => parameter.id !== parameterId), parameterGroups: type.parameterGroups.map((group) => ({ ...group, parameterIds: group.parameterIds.filter((id) => id !== parameterId) })) }
-              : type,
-          ),
-        )
-      }
-      onToggleObjectSystemLink={(objectId, systemId) => {
-        setSystems((prev) =>
-          prev.map((system) => {
-            if (system.id !== systemId) return system;
-            const targetObject = objects.find((item) => item.id === objectId);
-            const roomLink = system.linkedRoomIds.includes(objectId);
-            const scopeLink = system.scopeObjectIds.includes(objectId);
-            if (targetObject && isRoomType(targetObject.typeId, objectTypes)) {
-              return { ...system, linkedRoomIds: roomLink ? system.linkedRoomIds.filter((id) => id !== objectId) : [...system.linkedRoomIds, objectId] };
-            }
-            return { ...system, scopeObjectIds: scopeLink ? system.scopeObjectIds.filter((id) => id !== objectId) : [...system.scopeObjectIds, objectId] };
-          }),
-        );
-      }}
+      onUpdateSystem={(id, patch) => setSystems((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)))}
+      onCreateSystemType={createSystemTypeForSystem}
+      onAddEquipmentToSystem={addEquipmentToSystem}
+      onDetachEquipmentFromSystem={detachEquipmentFromSystem}
+      onSelectSystem={handleSelectSystem}
+      onSelectEquipment={handleSelectEquipment}
+      onLinkSystemToContextObject={linkSystemToContextObject}
+      onLinkSystemToRoomsInContext={linkSystemToRoomsInContext}
+      onToggleAllowedChildType={(typeId, childTypeId) => setObjectTypes((prev) => prev.map((type) => { if (type.id !== typeId) return type; const exists = type.allowedChildTypeIds.includes(childTypeId); return { ...type, allowedChildTypeIds: exists ? type.allowedChildTypeIds.filter((id) => id !== childTypeId) : [...type.allowedChildTypeIds, childTypeId] }; }))}
+      onAddParameterGroup={(typeId) => { const id = `group-${Date.now()}`; setObjectTypes((prev) => prev.map((type) => (type.id === typeId ? { ...type, parameterGroups: [...type.parameterGroups, { id, name: 'Новая группа', parameterIds: [] }] } : type))); }}
+      onRenameParameterGroup={(typeId, groupId, name) => setObjectTypes((prev) => prev.map((type) => (type.id === typeId ? { ...type, parameterGroups: type.parameterGroups.map((group) => (group.id === groupId ? { ...group, name } : group)) } : type)))}
+      onAddParameterToGroup={(typeId, groupId) => { const createdAt = Date.now(); const parameter: ParameterDefinition = { id: `param-${createdAt}`, name: 'Новый параметр', code: `param_${createdAt}`, dataType: 'string', unit: '', required: false, showInTree: false, defaultValue: null }; setObjectTypes((prev) => prev.map((type) => type.id === typeId ? { ...type, parameters: [...type.parameters, parameter], parameterGroups: type.parameterGroups.map((group) => (group.id === groupId ? { ...group, parameterIds: [...group.parameterIds, parameter.id] } : group)) } : type)); }}
+      onUpdateParameter={(typeId, parameterId, patch) => setObjectTypes((prev) => prev.map((type) => (type.id === typeId ? { ...type, parameters: type.parameters.map((parameter) => (parameter.id === parameterId ? { ...parameter, ...patch } : parameter)) } : type)))}
+      onDeleteParameter={(typeId, parameterId) => setObjectTypes((prev) => prev.map((type) => type.id === typeId ? { ...type, parameters: type.parameters.filter((parameter) => parameter.id !== parameterId), parameterGroups: type.parameterGroups.map((group) => ({ ...group, parameterIds: group.parameterIds.filter((id) => id !== parameterId) })) } : type))}
+      onToggleObjectSystemLink={(objectId, systemId) => setSystems((prev) => prev.map((system) => { if (system.id !== systemId) return system; const targetObject = objects.find((item) => item.id === objectId); const roomLink = system.linkedRoomIds.includes(objectId); const scopeLink = system.scopeObjectIds.includes(objectId); if (targetObject && isRoomType(targetObject.typeId, objectTypes)) return { ...system, linkedRoomIds: roomLink ? system.linkedRoomIds.filter((id) => id !== objectId) : [...system.linkedRoomIds, objectId] }; return { ...system, scopeObjectIds: scopeLink ? system.scopeObjectIds.filter((id) => id !== objectId) : [...system.scopeObjectIds, objectId] }; }))}
       onToggleEquipmentPlacement={(objectId, equipmentId) => setEquipment((prev) => prev.map((item) => (item.id === equipmentId ? { ...item, placementObjectId: objectId } : item)))}
-      onToggleSystemRoomLink={(systemId, roomId) => {
-        setSystems((prev) =>
-          prev.map((system) => {
-            if (system.id !== systemId) return system;
-            const exists = system.linkedRoomIds.includes(roomId);
-            return { ...system, linkedRoomIds: exists ? system.linkedRoomIds.filter((id) => id !== roomId) : [...system.linkedRoomIds, roomId] };
-          }),
-        );
-      }}
-      onBulkLinkRoomsToSystem={(systemId, roomIds) =>
-        setSystems((prev) => prev.map((system) => (system.id === systemId ? { ...system, linkedRoomIds: Array.from(new Set([...system.linkedRoomIds, ...roomIds])) } : system)))
-      }
+      onToggleSystemRoomLink={(systemId, roomId) => setSystems((prev) => prev.map((system) => { if (system.id !== systemId) return system; const exists = system.linkedRoomIds.includes(roomId); return { ...system, linkedRoomIds: exists ? system.linkedRoomIds.filter((id) => id !== roomId) : [...system.linkedRoomIds, roomId] }; }))}
+      onBulkLinkRoomsToSystem={(systemId, roomIds) => setSystems((prev) => prev.map((system) => (system.id === systemId ? { ...system, linkedRoomIds: Array.from(new Set([...system.linkedRoomIds, ...roomIds])) } : system)))}
       onUpdateTechCard={(id, patch) => setTechCards((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)))}
     />
   );

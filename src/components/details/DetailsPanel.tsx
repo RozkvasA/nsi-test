@@ -15,6 +15,7 @@ import type {
   TechCard,
 } from '../../types/nsi';
 import { ParameterContent } from './ParameterContent';
+import { SystemContent } from './SystemContent';
 import { TechCardContent } from './TechCardContent';
 
 interface DetailsPanelProps {
@@ -34,6 +35,7 @@ interface DetailsPanelProps {
   equipment: EquipmentEntity[];
   techCards: TechCard[];
   dictionaries: DictionaryItem[];
+  selectedContextObjectId: string | null;
   onSetActiveTab: (tab: string) => void;
   onSetActiveGroupId: (groupId: ParameterGroupId) => void;
   onSetShowEmpty: (value: boolean) => void;
@@ -47,6 +49,14 @@ interface DetailsPanelProps {
   onCreateObjectTypeForDraft: () => void;
   onUpdateObject: (id: string, patch: Partial<InfrastructureObject>) => void;
   onUpdateObjectType: (id: string, patch: Partial<ObjectType>) => void;
+  onUpdateSystem: (id: string, patch: Partial<SystemEntity>) => void;
+  onCreateSystemType: (systemId: string) => void;
+  onAddEquipmentToSystem: (systemId: string) => void;
+  onDetachEquipmentFromSystem: (systemId: string, equipmentId: string) => void;
+  onSelectSystem: (systemId: string, contextObjectId?: string | null) => void;
+  onSelectEquipment: (equipmentId: string) => void;
+  onLinkSystemToContextObject: (systemId: string) => void;
+  onLinkSystemToRoomsInContext: (systemId: string) => void;
   onToggleAllowedChildType: (typeId: string, childTypeId: string) => void;
   onAddParameterGroup: (typeId: string) => void;
   onRenameParameterGroup: (typeId: string, groupId: string, name: string) => void;
@@ -77,6 +87,7 @@ export function DetailsPanel({
   equipment,
   techCards,
   dictionaries,
+  selectedContextObjectId,
   onSetActiveTab,
   onSetActiveGroupId,
   onSetShowEmpty,
@@ -90,6 +101,14 @@ export function DetailsPanel({
   onCreateObjectTypeForDraft,
   onUpdateObject,
   onUpdateObjectType,
+  onUpdateSystem,
+  onCreateSystemType,
+  onAddEquipmentToSystem,
+  onDetachEquipmentFromSystem,
+  onSelectSystem,
+  onSelectEquipment,
+  onLinkSystemToContextObject,
+  onLinkSystemToRoomsInContext,
   onToggleAllowedChildType,
   onAddParameterGroup,
   onRenameParameterGroup,
@@ -106,6 +125,8 @@ export function DetailsPanel({
   const isRootDraft = pendingObjectDraft?.kind === 'rootObject';
   const selectedTemplate = pendingObjectDraft ? objectStructureTemplates.find((template) => template.id === pendingObjectDraft.templateId) : undefined;
   const selectedTechCard = selectedRef.kind === 'techCard' ? techCards.find((card) => card.id === selectedRef.id) : undefined;
+  const selectedSystem = selectedRef.kind === 'system' ? systems.find((system) => system.id === selectedRef.id) : undefined;
+  const selectedEquipment = selectedRef.kind === 'equipment' ? equipment.find((item) => item.id === selectedRef.id) : undefined;
 
   return (
     <section className="details-panel">
@@ -138,17 +159,8 @@ export function DetailsPanel({
 
           {isRootDraft && pendingObjectDraft.creationMode === 'template' ? (
             <>
-              <label className="field-row">
-                <span>Шаблон структуры</span>
-                <select value={pendingObjectDraft.templateId} onChange={(event) => onUpdatePendingObjectDraft({ templateId: event.target.value })}>
-                  {objectStructureTemplates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}
-                </select>
-              </label>
-              <div className="template-description">
-                <b>{selectedTemplate?.name ?? 'Шаблон не выбран'}</b>
-                <p>{selectedTemplate?.description ?? 'Выберите шаблон структуры объекта.'}</p>
-                {selectedTemplate ? <span>{selectedTemplate.nodes.length} узлов шаблона · рекомендуемый уровень детализации {selectedTemplate.detailLevel}</span> : null}
-              </div>
+              <label className="field-row"><span>Шаблон структуры</span><select value={pendingObjectDraft.templateId} onChange={(event) => onUpdatePendingObjectDraft({ templateId: event.target.value })}>{objectStructureTemplates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}</select></label>
+              <div className="template-description"><b>{selectedTemplate?.name ?? 'Шаблон не выбран'}</b><p>{selectedTemplate?.description ?? 'Выберите шаблон структуры объекта.'}</p>{selectedTemplate ? <span>{selectedTemplate.nodes.length} узлов шаблона · рекомендуемый уровень детализации {selectedTemplate.detailLevel}</span> : null}</div>
             </>
           ) : null}
 
@@ -160,32 +172,39 @@ export function DetailsPanel({
           <label className="field-row"><span>Площадь</span><input type="number" value={pendingObjectDraft.area ?? ''} onChange={(event) => onUpdatePendingObjectDraft({ area: event.target.value === '' ? null : Number(event.target.value) })} /></label>
           <label className="field-row"><span>Количество</span><input type="number" value={pendingObjectDraft.quantity} onChange={(event) => onUpdatePendingObjectDraft({ quantity: Number(event.target.value) })} /></label>
           <label className="field-row"><span>Единица измерения</span><input value={pendingObjectDraft.unit} onChange={(event) => onUpdatePendingObjectDraft({ unit: event.target.value })} /></label>
-          <div className="create-actions">
-            <button type="button" onClick={onConfirmCreateObject}>Создать объект</button>
-            <button type="button" onClick={onCreateObjectTypeForDraft}>Создать новый вид</button>
-            <button type="button" onClick={onCancelPendingObjectDraft}>Отмена</button>
-          </div>
+          <div className="create-actions"><button type="button" onClick={onConfirmCreateObject}>Создать объект</button><button type="button" onClick={onCreateObjectTypeForDraft}>Создать новый вид</button><button type="button" onClick={onCancelPendingObjectDraft}>Отмена</button></div>
         </div>
+      ) : selectedSystem ? (
+        <SystemContent
+          system={selectedSystem}
+          systems={systems}
+          objects={objects}
+          objectTypes={objectTypes}
+          equipment={equipment}
+          activeTab={activeTab}
+          contextObjectId={selectedContextObjectId}
+          onSetActiveTab={onSetActiveTab}
+          onUpdateSystem={onUpdateSystem}
+          onCreateSystemType={onCreateSystemType}
+          onAddEquipmentToSystem={onAddEquipmentToSystem}
+          onDetachEquipmentFromSystem={onDetachEquipmentFromSystem}
+          onSelectEquipment={onSelectEquipment}
+          onSelectSystem={(systemId) => onSelectSystem(systemId, selectedContextObjectId)}
+          onLinkSystemToContextObject={onLinkSystemToContextObject}
+          onLinkSystemToRoomsInContext={onLinkSystemToRoomsInContext}
+        />
+      ) : selectedEquipment ? (
+        <EquipmentPlaceholder equipmentItem={selectedEquipment} objects={objects} objectTypes={objectTypes} systems={systems} onSelectSystem={onSelectSystem} />
       ) : selectedTechCard ? (
         <TechCardContent card={selectedTechCard} objectTypes={objectTypes} dictionaries={dictionaries} activeTab={activeTab} onSetActiveTab={onSetActiveTab} onUpdateTechCard={onUpdateTechCard} />
       ) : (
         <>
-          <div className="tabs">
-            {tabs.map((tab) => <button key={tab} type="button" className={tab === activeTab ? 'tab active' : 'tab'} onClick={() => onSetActiveTab(tab)}>{tab}</button>)}
-          </div>
-
+          <div className="tabs">{tabs.map((tab) => <button key={tab} type="button" className={tab === activeTab ? 'tab active' : 'tab'} onClick={() => onSetActiveTab(tab)}>{tab}</button>)}</div>
           {activeTab === 'Параметры' ? (
             <div className="parameters-layout">
               <aside className="parameter-groups">
-                <div className="toggle-row">
-                  <span>Показать пустые</span>
-                  <label className="switch"><input type="checkbox" checked={showEmpty} onChange={(event) => onSetShowEmpty(event.target.checked)} /><span /></label>
-                </div>
-                {parameterGroups.map((group) => (
-                  <button key={group.id} type="button" className={group.id === activeGroupId ? 'group-button active' : 'group-button'} onClick={() => onSetActiveGroupId(group.id)}>
-                    <b>{group.title}</b><small>{group.hint}</small>
-                  </button>
-                ))}
+                <div className="toggle-row"><span>Показать пустые</span><label className="switch"><input type="checkbox" checked={showEmpty} onChange={(event) => onSetShowEmpty(event.target.checked)} /><span /></label></div>
+                {parameterGroups.map((group) => <button key={group.id} type="button" className={group.id === activeGroupId ? 'group-button active' : 'group-button'} onClick={() => onSetActiveGroupId(group.id)}><b>{group.title}</b><small>{group.hint}</small></button>)}
               </aside>
               <div className="parameter-card">
                 <ParameterContent
@@ -211,56 +230,47 @@ export function DetailsPanel({
                   onToggleEquipmentPlacement={onToggleEquipmentPlacement}
                   onToggleSystemRoomLink={onToggleSystemRoomLink}
                   onBulkLinkRoomsToSystem={onBulkLinkRoomsToSystem}
+                  onSelectSystem={(systemId) => onSelectSystem(systemId, selectedRef.kind === 'object' ? selectedRef.id : selectedContextObjectId)}
                   onUpdateTechCard={onUpdateTechCard}
                 />
               </div>
             </div>
-          ) : (
-            <div className="stub-tab"><h3>{activeTab}</h3><p>Раздел оставлен как заглушка этапа 1. Каркас вкладки есть, детальная логика будет подключаться следующими этапами.</p></div>
-          )}
+          ) : <div className="stub-tab"><h3>{activeTab}</h3><p>Раздел оставлен как заглушка этапа 1. Каркас вкладки есть, детальная логика будет подключаться следующими этапами.</p></div>}
         </>
       )}
     </section>
   );
 }
 
-function DetailsNoticePanel({
-  notice,
-  onDismiss,
-  onConfirmRetire,
-  onConfirmObjectTypeRetire,
-  onCancelRetire,
-}: {
-  notice: DetailsNotice;
-  onDismiss: () => void;
-  onConfirmRetire: () => void;
-  onConfirmObjectTypeRetire: () => void;
-  onCancelRetire: () => void;
-}) {
-  if (notice.type === 'retireConfirm') {
-    const { impact } = notice;
-    return (
-      <div className="notice-panel danger">
-        <div><b>Снятие с учета: {impact.targetObjectName}</b><p>Будет затронуто: дочерних элементов {impact.descendantCount}, систем {impact.affectedSystems}, оборудования {impact.affectedEquipment}, техкарт {impact.affectedTechCards}.</p></div>
-        <div className="notice-actions"><button type="button" className="danger-button" onClick={onConfirmRetire}>Подтвердить</button><button type="button" onClick={onCancelRetire}>Отмена</button></div>
-      </div>
-    );
-  }
-
-  if (notice.type === 'objectTypeRetireConfirm') {
-    const { impact } = notice;
-    return (
-      <div className="notice-panel danger">
-        <div><b>Снятие вида с учета: {impact.targetTypeName}</b><p>Будет затронуто: дочерних видов {impact.childTypeCount}, объектов этого вида и потомков {impact.objectCount}. Вид будет отключен для создания и редактирования.</p></div>
-        <div className="notice-actions"><button type="button" className="danger-button" onClick={onConfirmObjectTypeRetire}>Подтвердить</button><button type="button" onClick={onCancelRetire}>Отмена</button></div>
-      </div>
-    );
-  }
-
+function EquipmentPlaceholder({ equipmentItem, objects, objectTypes, systems, onSelectSystem }: { equipmentItem: EquipmentEntity; objects: InfrastructureObject[]; objectTypes: ObjectType[]; systems: SystemEntity[]; onSelectSystem: (systemId: string) => void }) {
+  const type = objectTypes.find((item) => item.id === equipmentItem.typeId);
+  const placement = objects.find((item) => item.id === equipmentItem.placementObjectId);
+  const system = systems.find((item) => item.id === equipmentItem.systemId);
   return (
-    <div className={notice.type === 'moveBlocked' ? 'notice-panel danger' : 'notice-panel'}>
-      <div><b>{notice.title}</b><p>{notice.message}</p></div>
-      <button type="button" onClick={onDismiss}>Закрыть</button>
+    <div className="parameter-card">
+      <div className="section-title"><h3>Карточка оборудования</h3><p>Безопасная заглушка до этапа Оборудование. Оборудование уже является отдельной сущностью и связано с системой.</p></div>
+      <div className="reference-fields-grid">
+        <label className="field-row"><span>Идентификатор</span><input value={equipmentItem.id} readOnly /></label>
+        <label className="field-row"><span>Наименование</span><input value={equipmentItem.name} readOnly /></label>
+        <label className="field-row"><span>Вид оборудования</span><input value={type?.name ?? 'Вид не найден'} readOnly /></label>
+        <label className="field-row"><span>Система</span><input value={system?.name ?? 'Не привязано'} readOnly /></label>
+        <label className="field-row"><span>Место размещения</span><input value={placement?.name ?? 'Не задано'} readOnly /></label>
+        <label className="field-row"><span>Количество</span><input value={equipmentItem.quantity} readOnly /></label>
+        <label className="field-row"><span>Единица измерения</span><input value={equipmentItem.unit} readOnly /></label>
+      </div>
+      {system ? <button type="button" className="secondary-action" onClick={() => onSelectSystem(system.id)}>Открыть систему</button> : null}
     </div>
   );
+}
+
+function DetailsNoticePanel({ notice, onDismiss, onConfirmRetire, onConfirmObjectTypeRetire, onCancelRetire }: { notice: DetailsNotice; onDismiss: () => void; onConfirmRetire: () => void; onConfirmObjectTypeRetire: () => void; onCancelRetire: () => void }) {
+  if (notice.type === 'retireConfirm') {
+    const { impact } = notice;
+    return <div className="notice-panel danger"><div><b>Снятие с учета: {impact.targetObjectName}</b><p>Будет затронуто: дочерних элементов {impact.descendantCount}, систем {impact.affectedSystems}, оборудования {impact.affectedEquipment}, техкарт {impact.affectedTechCards}.</p></div><div className="notice-actions"><button type="button" className="danger-button" onClick={onConfirmRetire}>Подтвердить</button><button type="button" onClick={onCancelRetire}>Отмена</button></div></div>;
+  }
+  if (notice.type === 'objectTypeRetireConfirm') {
+    const { impact } = notice;
+    return <div className="notice-panel danger"><div><b>Снятие вида с учета: {impact.targetTypeName}</b><p>Будет затронуто: дочерних видов {impact.childTypeCount}, объектов этого вида и потомков {impact.objectCount}. Вид будет отключен для создания и редактирования.</p></div><div className="notice-actions"><button type="button" className="danger-button" onClick={onConfirmObjectTypeRetire}>Подтвердить</button><button type="button" onClick={onCancelRetire}>Отмена</button></div></div>;
+  }
+  return <div className={notice.type === 'moveBlocked' ? 'notice-panel danger' : 'notice-panel'}><div><b>{notice.title}</b><p>{notice.message}</p></div><button type="button" onClick={onDismiss}>Закрыть</button></div>;
 }
