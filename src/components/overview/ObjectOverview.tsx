@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { ReactNode } from 'react';
 import type { EquipmentEntity, InfrastructureObject, ObjectType, SystemEntity, TechCard } from '../../types/nsi';
 import type { OverviewRoomItem, OverviewSystemItem } from '../../utils/nsiOverview';
 import { buildObjectOverviewCards } from '../../utils/nsiOverview';
@@ -49,10 +50,7 @@ export function ObjectOverview({ objects, objectTypes, systems, equipment, techC
             <article className={isExpanded ? 'overview-tree-card expanded' : 'overview-tree-card'} key={card.id}>
               <div className="overview-root-row">
                 <button type="button" className="overview-expand-button" onClick={() => toggleRoot(card.id)} aria-label={isExpanded ? 'Свернуть объект' : 'Раскрыть объект'}>{isExpanded ? '▾' : '▸'}</button>
-                <div className="overview-root-main">
-                  <b>{card.name}</b>
-                  <span>{card.typeName}</span>
-                </div>
+                <div className="overview-root-main"><b>{card.name}</b><span>{card.typeName}</span></div>
                 <div className="overview-badges">
                   <Badge label={`L${card.detailLevel}`} />
                   {area ? <Badge label={area} /> : null}
@@ -70,10 +68,7 @@ export function ObjectOverview({ objects, objectTypes, systems, equipment, techC
                   {card.warnings.length > 0 ? <div className="overview-warning-line">{card.warnings.join('; ')}</div> : null}
                   {card.detailNodes.map((node) => (
                     <div className="overview-detail-row" key={node.id}>
-                      <div className="overview-detail-main">
-                        <b>{node.name}</b>
-                        <span>{node.typeName} · {node.path}</span>
-                      </div>
+                      <div className="overview-detail-main"><b>{node.name}</b><span>{node.typeName} · {node.path}</span></div>
                       <CompactBlock title="Помещения" emptyText="нет помещений" items={node.rooms} renderItem={(room) => <RoomLine room={room} />} />
                       <CompactBlock title="Системы" emptyText="нет систем" items={node.systems} renderItem={(system) => <SystemLine system={system} />} />
                     </div>
@@ -92,16 +87,9 @@ function Badge({ label, tone }: { label: string; tone?: 'warning' }) {
   return <span className={tone === 'warning' ? 'overview-badge warning' : 'overview-badge'}>{label}</span>;
 }
 
-function CompactBlock<T>({ title, emptyText, items, renderItem }: { title: string; emptyText: string; items: T[]; renderItem: (item: T) => JSX.Element }) {
+function CompactBlock<T>({ title, emptyText, items, renderItem }: { title: string; emptyText: string; items: T[]; renderItem: (item: T) => ReactNode }) {
   const { visible, rest } = limitItems(items, 5);
-  return (
-    <div className="overview-compact-block">
-      <div className="overview-compact-block-title"><b>{title}</b><span>{items.length}</span></div>
-      {visible.length === 0 ? <small>{emptyText}</small> : null}
-      {visible.map((item, index) => <div className="overview-compact-line" key={index}>{renderItem(item)}</div>)}
-      {rest > 0 ? <small>+{rest} еще</small> : null}
-    </div>
-  );
+  return <div className="overview-compact-block"><div className="overview-compact-block-title"><b>{title}</b><span>{items.length}</span></div>{visible.length === 0 ? <small>{emptyText}</small> : null}{visible.map((item, index) => <div className="overview-compact-line" key={index}>{renderItem(item)}</div>)}{rest > 0 ? <small>+{rest} еще</small> : null}</div>;
 }
 
 function RoomLine({ room }: { room: OverviewRoomItem }) {
