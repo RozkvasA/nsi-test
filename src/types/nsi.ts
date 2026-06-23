@@ -1,6 +1,6 @@
 export type NsiSectionId = 'overview' | 'objects' | 'objectTypes' | 'techCards' | 'dictionaries';
 
-export type EntityKind = 'object' | 'objectType' | 'techCard' | 'dictionary';
+export type EntityKind = 'object' | 'objectType' | 'system' | 'equipment' | 'techCard' | 'dictionary';
 
 export type ObjectStatus = 'active' | 'retired';
 
