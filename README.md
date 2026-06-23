@@ -58,17 +58,21 @@
 Этап 6 добавляет:
 
 - верхнюю служебную панель с хлебными крошками и пользовательским блоком;
-- компактное левое меню только с группой НСИ и четырьмя разделами;
+- компактное левое меню с группой НСИ и пятью разделами;
+- сворачиваемый sidebar, который остается слева на desktop и tablet-ширинах;
+- новый начальный раздел Обзор объектов;
+- карточки корневых объектов с краткой структурой до уровня детализации;
 - белые панели дерева и карточки с тонкими границами;
 - нижнюю панель действий дерева: Создать, Удалить, Копировать;
 - плотные формы карточек в паттерне label -> value/input;
-- адаптивное отображение дерева и карточки.
+- адаптивное отображение без переноса основной навигации наверх.
 
 ## Структура интерфейса
 
 ```text
 src/App.tsx                         контейнер состояния и бизнес-действий
 src/components/layout/NsiLayout.tsx  общий layout с верхней панелью, меню, деревом и карточкой
+src/components/overview/ObjectOverview.tsx
 src/components/tree/NsiTree.tsx      центральное дерево и меню действий
 src/components/details/DetailsPanel.tsx
 src/components/details/ParameterContent.tsx
@@ -77,6 +81,7 @@ src/components/relations/RelationBlock.tsx
 src/utils/nsiTree.ts                 helpers дерева, поиска, сводок и проверок
 src/utils/nsiObjectParameters.ts     helpers динамических параметров объекта
 src/utils/nsiObjectTemplates.ts      helpers шаблонов и уровня детализации
+src/utils/nsiOverview.ts             helpers обзора объектов
 src/utils/nsiTechCards.ts            helpers технологических карт
 ```
 
