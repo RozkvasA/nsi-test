@@ -21,11 +21,20 @@ const limitItems = <T,>(items: T[], limit = 5) => ({ visible: items.slice(0, lim
 export function ObjectOverview({ objects, objectTypes, systems, equipment, techCards, onAddObject, onCreateFromTemplate, onOpenInTree }: ObjectOverviewProps) {
   const cards = buildObjectOverviewCards(objects, objectTypes, systems, equipment, techCards);
   const [expandedOverviewRootIds, setExpandedOverviewRootIds] = useState<Set<string>>(new Set());
+  const [expandedOverviewNodeIds, setExpandedOverviewNodeIds] = useState<Set<string>>(new Set());
 
   const toggleRoot = (rootId: string) => {
     setExpandedOverviewRootIds((prev) => {
       const next = new Set(prev);
       next.has(rootId) ? next.delete(rootId) : next.add(rootId);
+      return next;
+    });
+  };
+
+  const toggleNode = (nodeId: string) => {
+    setExpandedOverviewNodeIds((prev) => {
+      const next = new Set(prev);
+      next.has(nodeId) ? next.delete(nodeId) : next.add(nodeId);
       return next;
     });
   };
@@ -41,7 +50,7 @@ export function ObjectOverview({ objects, objectTypes, systems, equipment, techC
       </header>
 
       <div className="overview-list compact-overview-list">
-        {cards.length === 0 ? <div className="empty-state compact-empty"><h3>Объекты не заведены</h3><p>Создайте первый объект вручную или из шаблона.</p></div> : null}
+        {cards.length === 0 ? <div className="empty-state compact-empty"><h3>Объекты не заведены</h3><p>Демо выключено. Создайте первый объект вручную или из шаблона.</p></div> : null}
 
         {cards.map((card) => {
           const isExpanded = expandedOverviewRootIds.has(card.id);
@@ -66,13 +75,29 @@ export function ObjectOverview({ objects, objectTypes, systems, equipment, techC
               {isExpanded ? (
                 <div className="overview-tree-body">
                   {card.warnings.length > 0 ? <div className="overview-warning-line">{card.warnings.join('; ')}</div> : null}
-                  {card.detailNodes.map((node) => (
-                    <div className="overview-detail-row" key={node.id}>
-                      <div className="overview-detail-main"><b>{node.name}</b><span>{node.typeName} · {node.path}</span></div>
-                      <CompactBlock title="Помещения" emptyText="нет помещений" items={node.rooms} renderItem={(room) => <RoomLine room={room} />} />
-                      <CompactBlock title="Системы" emptyText="нет систем" items={node.systems} renderItem={(system) => <SystemLine system={system} />} />
-                    </div>
-                  ))}
+                  {card.outlineNodes.map((node) => {
+                    const isNodeExpanded = expandedOverviewNodeIds.has(node.id);
+                    return (
+                      <div className={isNodeExpanded ? 'overview-level-block expanded' : 'overview-level-block'} key={node.id}>
+                        <div className="overview-level-row">
+                          <button type="button" className="overview-expand-button" onClick={() => toggleNode(node.id)} aria-label={isNodeExpanded ? 'Свернуть уровень' : 'Раскрыть уровень'}>{isNodeExpanded ? '▾' : '▸'}</button>
+                          <div className="overview-detail-main"><b>{node.name}</b><span>{node.typeName}</span></div>
+                          <div className="overview-badges"><Badge label={`${node.detailChildren.length} узл.`} /></div>
+                        </div>
+                        {isNodeExpanded ? (
+                          <div className="overview-level-children">
+                            {node.detailChildren.map((detailNode) => (
+                              <div className="overview-detail-row" key={detailNode.id}>
+                                <div className="overview-detail-main"><b>{detailNode.name}</b><span>{detailNode.typeName} · {detailNode.path}</span></div>
+                                <CompactBlock title="Помещения" emptyText="нет помещений" items={detailNode.rooms} renderItem={(room) => <RoomLine room={room} />} />
+                                <CompactBlock title="Системы" emptyText="нет систем" items={detailNode.systems} renderItem={(system) => <SystemLine system={system} />} />
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
                 </div>
               ) : null}
             </article>
