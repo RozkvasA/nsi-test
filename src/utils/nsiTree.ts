@@ -39,6 +39,23 @@ export function buildTreeNodes(
   dictionaries: DictionaryItem[],
   objectTypes: ObjectType[],
 ): TreeNode[] {
+  if (sectionId === 'overview') {
+    return objects
+      .filter((object) => object.parentId === null)
+      .map((object) => {
+        const objectType = objectTypes.find((type) => type.id === object.typeId);
+        return {
+          id: object.id,
+          parentId: null,
+          entityKind: 'object',
+          title: object.name,
+          subtitle: objectType?.name ?? 'Вид не задан',
+          summary: formatArea(object.area),
+          warning: object.status === 'retired' ? 'снят с учета' : undefined,
+        };
+      });
+  }
+
   if (sectionId === 'objects') {
     return objects.map((object) => {
       const objectType = objectTypes.find((type) => type.id === object.typeId);
