@@ -145,14 +145,11 @@ function getRoomsForDetailNode(node: InfrastructureObject, objects: Infrastructu
   }));
 }
 
-function getEquipmentForDetailNode(node: InfrastructureObject, objects: InfrastructureObject[], objectTypes: ObjectType[], systems: SystemEntity[], equipment: EquipmentEntity[]): OverviewEquipmentItem[] {
+function getEquipmentForDetailNode(node: InfrastructureObject, objects: InfrastructureObject[], objectTypes: ObjectType[], equipment: EquipmentEntity[]): OverviewEquipmentItem[] {
   const subtreeIds = [node.id, ...getDescendantIds(objects, node.id)];
-  const applicableSystems = getApplicableSystems(node, objects, systems);
-  const applicableSystemIds = new Set(applicableSystems.map((system) => system.id));
-  const applicableEquipmentIds = new Set(systems.filter((system) => applicableSystemIds.has(system.id)).flatMap((system) => system.equipmentIds));
 
   return equipment
-    .filter((item) => subtreeIds.includes(item.placementObjectId) || applicableEquipmentIds.has(item.id))
+    .filter((item) => subtreeIds.includes(item.placementObjectId))
     .map((item) => ({
       id: item.id,
       name: item.name,
@@ -166,8 +163,8 @@ function getEquipmentForDetailNode(node: InfrastructureObject, objects: Infrastr
 function getTechCardsForDetailNode(node: InfrastructureObject, objects: InfrastructureObject[], objectTypes: ObjectType[], systems: SystemEntity[], equipment: EquipmentEntity[], techCards: TechCard[]): OverviewTechCardItem[] {
   const subtreeIds = [node.id, ...getDescendantIds(objects, node.id)];
   const applicableSystems = getApplicableSystems(node, objects, systems);
-  const applicableEquipment = getEquipmentForDetailNode(node, objects, objectTypes, systems, equipment);
-  const targetIds = new Set([...subtreeIds, ...applicableSystems.map((system) => system.id), ...applicableEquipment.map((item) => item.id)]);
+  const nodeEquipment = getEquipmentForDetailNode(node, objects, objectTypes, equipment);
+  const targetIds = new Set([...subtreeIds, ...applicableSystems.map((system) => system.id), ...nodeEquipment.map((item) => item.id)]);
 
   return techCards
     .filter((card) => targetIds.has(card.targetId))
@@ -178,7 +175,7 @@ function toDetailNode(node: InfrastructureObject, objects: InfrastructureObject[
   const objectType = objectTypes.find((type) => type.id === node.typeId);
   const rooms = getRoomsForDetailNode(node, objects, objectTypes);
   const nodeSystems = getApplicableSystems(node, objects, systems);
-  const nodeEquipment = getEquipmentForDetailNode(node, objects, objectTypes, systems, equipment);
+  const nodeEquipment = getEquipmentForDetailNode(node, objects, objectTypes, equipment);
   const nodeTechCards = getTechCardsForDetailNode(node, objects, objectTypes, systems, equipment, techCards);
   const warnings = [node.status === 'retired' ? 'объект снят с учета' : null, ...collectRequiredParameterWarnings(node, objectType)].filter((item): item is string => Boolean(item));
 
