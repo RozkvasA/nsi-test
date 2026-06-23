@@ -77,11 +77,16 @@ interface NsiLayoutProps {
   onUpdateObject: (id: string, patch: Partial<InfrastructureObject>) => void;
   onUpdateObjectType: (id: string, patch: Partial<ObjectType>) => void;
   onUpdateSystem: (id: string, patch: Partial<SystemEntity>) => void;
+  onUpdateEquipment: (id: string, patch: Partial<EquipmentEntity>) => void;
   onCreateSystemType: (systemId: string) => void;
+  onCreateEquipmentType: (equipmentId: string) => void;
   onAddEquipmentToSystem: (systemId: string) => void;
+  onAddChildEquipment: (parentEquipmentId: string) => void;
   onDetachEquipmentFromSystem: (systemId: string, equipmentId: string) => void;
   onSelectSystem: (systemId: string, contextObjectId?: string | null) => void;
   onSelectEquipment: (equipmentId: string) => void;
+  onSelectTechCard: (techCardId: string) => void;
+  onCreateTechCardForEquipment: (equipmentId: string) => void;
   onLinkSystemToContextObject: (systemId: string) => void;
   onLinkSystemToRoomsInContext: (systemId: string) => void;
   onToggleAllowedChildType: (typeId: string, childTypeId: string) => void;
@@ -152,11 +157,16 @@ export function NsiLayout({
   onUpdateObject,
   onUpdateObjectType,
   onUpdateSystem,
+  onUpdateEquipment,
   onCreateSystemType,
+  onCreateEquipmentType,
   onAddEquipmentToSystem,
+  onAddChildEquipment,
   onDetachEquipmentFromSystem,
   onSelectSystem,
   onSelectEquipment,
+  onSelectTechCard,
+  onCreateTechCardForEquipment,
   onLinkSystemToContextObject,
   onLinkSystemToRoomsInContext,
   onToggleAllowedChildType,
@@ -205,11 +215,16 @@ export function NsiLayout({
       onUpdateObject={onUpdateObject}
       onUpdateObjectType={onUpdateObjectType}
       onUpdateSystem={onUpdateSystem}
+      onUpdateEquipment={onUpdateEquipment}
       onCreateSystemType={onCreateSystemType}
+      onCreateEquipmentType={onCreateEquipmentType}
       onAddEquipmentToSystem={onAddEquipmentToSystem}
+      onAddChildEquipment={onAddChildEquipment}
       onDetachEquipmentFromSystem={onDetachEquipmentFromSystem}
       onSelectSystem={onSelectSystem}
       onSelectEquipment={onSelectEquipment}
+      onSelectTechCard={onSelectTechCard}
+      onCreateTechCardForEquipment={onCreateTechCardForEquipment}
       onLinkSystemToContextObject={onLinkSystemToContextObject}
       onLinkSystemToRoomsInContext={onLinkSystemToRoomsInContext}
       onToggleAllowedChildType={onToggleAllowedChildType}
@@ -237,22 +252,13 @@ export function NsiLayout({
         <aside className={isSidebarCollapsed ? 'sidebar collapsed' : 'sidebar'}>
           <div className="brand-block"><span className="brand-mark">НСИ</span><div className="brand-text"><h1>Модуль НСИ</h1><p>исходные данные</p></div></div>
           <button type="button" className="sidebar-toggle" onClick={() => setIsSidebarCollapsed((value) => !value)}>{isSidebarCollapsed ? '→' : '←'}<span>{isSidebarCollapsed ? 'Развернуть меню' : 'Свернуть меню'}</span></button>
-          <nav className="section-nav" aria-label="Разделы НСИ">
-            <span className="nav-group-title">НСИ</span>
-            {sections.map((section) => <button key={section.id} type="button" className={section.id === activeSectionId ? 'section-button active' : 'section-button'} onClick={() => onSelectSection(section.id)} title={section.title}><span className="section-icon">{sectionIcons[section.id]}</span><span className="section-label">{section.title}</span><small>{section.description}</small></button>)}
-          </nav>
+          <nav className="section-nav" aria-label="Разделы НСИ"><span className="nav-group-title">НСИ</span>{sections.map((section) => <button key={section.id} type="button" className={section.id === activeSectionId ? 'section-button active' : 'section-button'} onClick={() => onSelectSection(section.id)} title={section.title}><span className="section-icon">{sectionIcons[section.id]}</span><span className="section-label">{section.title}</span><small>{section.description}</small></button>)}</nav>
         </aside>
 
         {activeSectionId === 'overview' ? (
-          <main className="work-area overview-work-area">
-            <ObjectOverview objects={objects} objectTypes={objectTypes} systems={systems} equipment={equipment} techCards={techCards} onAddObject={() => onCreate('rootObject')} onCreateFromTemplate={onCreateRootFromTemplate} onOpenInTree={onOpenObjectInTree} />
-            {detailsPanel}
-          </main>
+          <main className="work-area overview-work-area"><ObjectOverview objects={objects} objectTypes={objectTypes} systems={systems} equipment={equipment} techCards={techCards} onAddObject={() => onCreate('rootObject')} onCreateFromTemplate={onCreateRootFromTemplate} onOpenInTree={onOpenObjectInTree} />{detailsPanel}</main>
         ) : (
-          <main className="work-area">
-            <NsiTree activeSection={activeSection} activeSectionId={activeSectionId} searchQuery={searchQuery} sortAscending={sortAscending} childrenByParentId={childrenByParentId} expandedIds={expandedIds} selectedRef={selectedRef} pendingMoveRef={pendingMoveRef} onSetSearchQuery={onSetSearchQuery} onToggleSort={onToggleSort} onToggleExpanded={onToggleExpanded} onSelectNode={onSelectNode} onStartDrag={onStartDrag} onDropOnNode={onDropOnNode} onCreate={onCreate} onTreeAction={onTreeAction} onMoveToNode={onMoveToNode} onCancelMove={onCancelMove} />
-            {detailsPanel}
-          </main>
+          <main className="work-area"><NsiTree activeSection={activeSection} activeSectionId={activeSectionId} searchQuery={searchQuery} sortAscending={sortAscending} childrenByParentId={childrenByParentId} expandedIds={expandedIds} selectedRef={selectedRef} pendingMoveRef={pendingMoveRef} onSetSearchQuery={onSetSearchQuery} onToggleSort={onToggleSort} onToggleExpanded={onToggleExpanded} onSelectNode={onSelectNode} onStartDrag={onStartDrag} onDropOnNode={onDropOnNode} onCreate={onCreate} onTreeAction={onTreeAction} onMoveToNode={onMoveToNode} onCancelMove={onCancelMove} />{detailsPanel}</main>
         )}
       </div>
     </div>
