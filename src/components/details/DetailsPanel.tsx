@@ -14,6 +14,7 @@ import type {
   SystemEntity,
   TechCard,
 } from '../../types/nsi';
+import { EquipmentContent } from './EquipmentContent';
 import { ParameterContent } from './ParameterContent';
 import { SystemContent } from './SystemContent';
 import { TechCardContent } from './TechCardContent';
@@ -50,11 +51,16 @@ interface DetailsPanelProps {
   onUpdateObject: (id: string, patch: Partial<InfrastructureObject>) => void;
   onUpdateObjectType: (id: string, patch: Partial<ObjectType>) => void;
   onUpdateSystem: (id: string, patch: Partial<SystemEntity>) => void;
+  onUpdateEquipment: (id: string, patch: Partial<EquipmentEntity>) => void;
   onCreateSystemType: (systemId: string) => void;
+  onCreateEquipmentType: (equipmentId: string) => void;
   onAddEquipmentToSystem: (systemId: string) => void;
+  onAddChildEquipment: (parentEquipmentId: string) => void;
   onDetachEquipmentFromSystem: (systemId: string, equipmentId: string) => void;
   onSelectSystem: (systemId: string, contextObjectId?: string | null) => void;
   onSelectEquipment: (equipmentId: string) => void;
+  onSelectTechCard: (techCardId: string) => void;
+  onCreateTechCardForEquipment: (equipmentId: string) => void;
   onLinkSystemToContextObject: (systemId: string) => void;
   onLinkSystemToRoomsInContext: (systemId: string) => void;
   onToggleAllowedChildType: (typeId: string, childTypeId: string) => void;
@@ -102,11 +108,16 @@ export function DetailsPanel({
   onUpdateObject,
   onUpdateObjectType,
   onUpdateSystem,
+  onUpdateEquipment,
   onCreateSystemType,
+  onCreateEquipmentType,
   onAddEquipmentToSystem,
+  onAddChildEquipment,
   onDetachEquipmentFromSystem,
   onSelectSystem,
   onSelectEquipment,
+  onSelectTechCard,
+  onCreateTechCardForEquipment,
   onLinkSystemToContextObject,
   onLinkSystemToRoomsInContext,
   onToggleAllowedChildType,
@@ -136,34 +147,13 @@ export function DetailsPanel({
         <span>{pendingObjectDraft ? 'Выберите способ создания и вид объекта' : selectedEntity?.subtitle ?? 'Выберите строку в дереве'}</span>
       </header>
 
-      {detailsNotice ? (
-        <DetailsNoticePanel notice={detailsNotice} onDismiss={onDismissNotice} onConfirmRetire={onConfirmRetire} onConfirmObjectTypeRetire={onConfirmObjectTypeRetire} onCancelRetire={onCancelRetire} />
-      ) : null}
+      {detailsNotice ? <DetailsNoticePanel notice={detailsNotice} onDismiss={onDismissNotice} onConfirmRetire={onConfirmRetire} onConfirmObjectTypeRetire={onConfirmObjectTypeRetire} onCancelRetire={onCancelRetire} /> : null}
 
       {pendingObjectDraft ? (
         <div className="create-object-panel">
-          <div className="section-title">
-            <h3>{isRootDraft ? 'Новый корневой объект' : 'Новый элемент дерева объектов'}</h3>
-            <p>Создание не назначает тип автоматически: пользователь выбирает вид из редактируемого дерева видов объектов.</p>
-          </div>
-
-          {isRootDraft ? (
-            <div className="creation-mode-card">
-              <span>Способ создания</span>
-              <div className="mode-buttons">
-                <button type="button" className={pendingObjectDraft.creationMode === 'empty' ? 'mode-button active' : 'mode-button'} onClick={() => onUpdatePendingObjectDraft({ creationMode: 'empty' })}>Создать пустой объект</button>
-                <button type="button" className={pendingObjectDraft.creationMode === 'template' ? 'mode-button active' : 'mode-button'} onClick={() => onUpdatePendingObjectDraft({ creationMode: 'template' })}>Создать из шаблона</button>
-              </div>
-            </div>
-          ) : null}
-
-          {isRootDraft && pendingObjectDraft.creationMode === 'template' ? (
-            <>
-              <label className="field-row"><span>Шаблон структуры</span><select value={pendingObjectDraft.templateId} onChange={(event) => onUpdatePendingObjectDraft({ templateId: event.target.value })}>{objectStructureTemplates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}</select></label>
-              <div className="template-description"><b>{selectedTemplate?.name ?? 'Шаблон не выбран'}</b><p>{selectedTemplate?.description ?? 'Выберите шаблон структуры объекта.'}</p>{selectedTemplate ? <span>{selectedTemplate.nodes.length} узлов шаблона · рекомендуемый уровень детализации {selectedTemplate.detailLevel}</span> : null}</div>
-            </>
-          ) : null}
-
+          <div className="section-title"><h3>{isRootDraft ? 'Новый корневой объект' : 'Новый элемент дерева объектов'}</h3><p>Создание не назначает тип автоматически: пользователь выбирает вид из редактируемого дерева видов объектов.</p></div>
+          {isRootDraft ? <div className="creation-mode-card"><span>Способ создания</span><div className="mode-buttons"><button type="button" className={pendingObjectDraft.creationMode === 'empty' ? 'mode-button active' : 'mode-button'} onClick={() => onUpdatePendingObjectDraft({ creationMode: 'empty' })}>Создать пустой объект</button><button type="button" className={pendingObjectDraft.creationMode === 'template' ? 'mode-button active' : 'mode-button'} onClick={() => onUpdatePendingObjectDraft({ creationMode: 'template' })}>Создать из шаблона</button></div></div> : null}
+          {isRootDraft && pendingObjectDraft.creationMode === 'template' ? <><label className="field-row"><span>Шаблон структуры</span><select value={pendingObjectDraft.templateId} onChange={(event) => onUpdatePendingObjectDraft({ templateId: event.target.value })}>{objectStructureTemplates.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}</select></label><div className="template-description"><b>{selectedTemplate?.name ?? 'Шаблон не выбран'}</b><p>{selectedTemplate?.description ?? 'Выберите шаблон структуры объекта.'}</p>{selectedTemplate ? <span>{selectedTemplate.nodes.length} узлов шаблона · рекомендуемый уровень детализации {selectedTemplate.detailLevel}</span> : null}</div></> : null}
           <label className="field-row"><span>Родительский объект</span><input value={parentObject?.name ?? 'Корневой уровень'} readOnly /></label>
           <label className="field-row"><span>Вид объекта</span><select value={pendingObjectDraft.typeId} onChange={(event) => onUpdatePendingObjectDraft({ typeId: event.target.value })}>{objectTypes.map((type) => <option key={type.id} value={type.id}>{type.icon} {type.name}</option>)}</select></label>
           <label className="field-row"><span>Наименование</span><input value={pendingObjectDraft.name} onChange={(event) => onUpdatePendingObjectDraft({ name: event.target.value })} /></label>
@@ -175,26 +165,9 @@ export function DetailsPanel({
           <div className="create-actions"><button type="button" onClick={onConfirmCreateObject}>Создать объект</button><button type="button" onClick={onCreateObjectTypeForDraft}>Создать новый вид</button><button type="button" onClick={onCancelPendingObjectDraft}>Отмена</button></div>
         </div>
       ) : selectedSystem ? (
-        <SystemContent
-          system={selectedSystem}
-          systems={systems}
-          objects={objects}
-          objectTypes={objectTypes}
-          equipment={equipment}
-          activeTab={activeTab}
-          contextObjectId={selectedContextObjectId}
-          onSetActiveTab={onSetActiveTab}
-          onUpdateSystem={onUpdateSystem}
-          onCreateSystemType={onCreateSystemType}
-          onAddEquipmentToSystem={onAddEquipmentToSystem}
-          onDetachEquipmentFromSystem={onDetachEquipmentFromSystem}
-          onSelectEquipment={onSelectEquipment}
-          onSelectSystem={(systemId) => onSelectSystem(systemId, selectedContextObjectId)}
-          onLinkSystemToContextObject={onLinkSystemToContextObject}
-          onLinkSystemToRoomsInContext={onLinkSystemToRoomsInContext}
-        />
+        <SystemContent system={selectedSystem} systems={systems} objects={objects} objectTypes={objectTypes} equipment={equipment} activeTab={activeTab} contextObjectId={selectedContextObjectId} onSetActiveTab={onSetActiveTab} onUpdateSystem={onUpdateSystem} onCreateSystemType={onCreateSystemType} onAddEquipmentToSystem={onAddEquipmentToSystem} onDetachEquipmentFromSystem={onDetachEquipmentFromSystem} onSelectEquipment={onSelectEquipment} onSelectSystem={(systemId) => onSelectSystem(systemId, selectedContextObjectId)} onLinkSystemToContextObject={onLinkSystemToContextObject} onLinkSystemToRoomsInContext={onLinkSystemToRoomsInContext} />
       ) : selectedEquipment ? (
-        <EquipmentPlaceholder equipmentItem={selectedEquipment} objects={objects} objectTypes={objectTypes} systems={systems} onSelectSystem={onSelectSystem} />
+        <EquipmentContent equipmentItem={selectedEquipment} equipment={equipment} systems={systems} objects={objects} objectTypes={objectTypes} techCards={techCards} activeTab={activeTab} onSetActiveTab={onSetActiveTab} onUpdateEquipment={onUpdateEquipment} onCreateEquipmentType={onCreateEquipmentType} onAddChildEquipment={onAddChildEquipment} onSelectEquipment={onSelectEquipment} onSelectSystem={(systemId) => onSelectSystem(systemId, selectedContextObjectId)} onSelectTechCard={onSelectTechCard} onCreateTechCardForEquipment={onCreateTechCardForEquipment} />
       ) : selectedTechCard ? (
         <TechCardContent card={selectedTechCard} objectTypes={objectTypes} dictionaries={dictionaries} activeTab={activeTab} onSetActiveTab={onSetActiveTab} onUpdateTechCard={onUpdateTechCard} />
       ) : (
@@ -202,64 +175,13 @@ export function DetailsPanel({
           <div className="tabs">{tabs.map((tab) => <button key={tab} type="button" className={tab === activeTab ? 'tab active' : 'tab'} onClick={() => onSetActiveTab(tab)}>{tab}</button>)}</div>
           {activeTab === 'Параметры' ? (
             <div className="parameters-layout">
-              <aside className="parameter-groups">
-                <div className="toggle-row"><span>Показать пустые</span><label className="switch"><input type="checkbox" checked={showEmpty} onChange={(event) => onSetShowEmpty(event.target.checked)} /><span /></label></div>
-                {parameterGroups.map((group) => <button key={group.id} type="button" className={group.id === activeGroupId ? 'group-button active' : 'group-button'} onClick={() => onSetActiveGroupId(group.id)}><b>{group.title}</b><small>{group.hint}</small></button>)}
-              </aside>
-              <div className="parameter-card">
-                <ParameterContent
-                  selectedRef={selectedRef}
-                  selectedEntity={selectedEntity}
-                  activeGroupId={activeGroupId}
-                  showEmpty={showEmpty}
-                  objects={objects}
-                  objectTypes={objectTypes}
-                  systems={systems}
-                  equipment={equipment}
-                  techCards={techCards}
-                  dictionaries={dictionaries}
-                  onUpdateObject={onUpdateObject}
-                  onUpdateObjectType={onUpdateObjectType}
-                  onToggleAllowedChildType={onToggleAllowedChildType}
-                  onAddParameterGroup={onAddParameterGroup}
-                  onRenameParameterGroup={onRenameParameterGroup}
-                  onAddParameterToGroup={onAddParameterToGroup}
-                  onUpdateParameter={onUpdateParameter}
-                  onDeleteParameter={onDeleteParameter}
-                  onToggleObjectSystemLink={onToggleObjectSystemLink}
-                  onToggleEquipmentPlacement={onToggleEquipmentPlacement}
-                  onToggleSystemRoomLink={onToggleSystemRoomLink}
-                  onBulkLinkRoomsToSystem={onBulkLinkRoomsToSystem}
-                  onSelectSystem={(systemId) => onSelectSystem(systemId, selectedRef.kind === 'object' ? selectedRef.id : selectedContextObjectId)}
-                  onUpdateTechCard={onUpdateTechCard}
-                />
-              </div>
+              <aside className="parameter-groups"><div className="toggle-row"><span>Показать пустые</span><label className="switch"><input type="checkbox" checked={showEmpty} onChange={(event) => onSetShowEmpty(event.target.checked)} /><span /></label></div>{parameterGroups.map((group) => <button key={group.id} type="button" className={group.id === activeGroupId ? 'group-button active' : 'group-button'} onClick={() => onSetActiveGroupId(group.id)}><b>{group.title}</b><small>{group.hint}</small></button>)}</aside>
+              <div className="parameter-card"><ParameterContent selectedRef={selectedRef} selectedEntity={selectedEntity} activeGroupId={activeGroupId} showEmpty={showEmpty} objects={objects} objectTypes={objectTypes} systems={systems} equipment={equipment} techCards={techCards} dictionaries={dictionaries} onUpdateObject={onUpdateObject} onUpdateObjectType={onUpdateObjectType} onToggleAllowedChildType={onToggleAllowedChildType} onAddParameterGroup={onAddParameterGroup} onRenameParameterGroup={onRenameParameterGroup} onAddParameterToGroup={onAddParameterToGroup} onUpdateParameter={onUpdateParameter} onDeleteParameter={onDeleteParameter} onToggleObjectSystemLink={onToggleObjectSystemLink} onToggleEquipmentPlacement={onToggleEquipmentPlacement} onToggleSystemRoomLink={onToggleSystemRoomLink} onBulkLinkRoomsToSystem={onBulkLinkRoomsToSystem} onSelectSystem={(systemId) => onSelectSystem(systemId, selectedRef.kind === 'object' ? selectedRef.id : selectedContextObjectId)} onSelectEquipment={onSelectEquipment} onUpdateTechCard={onUpdateTechCard} /></div>
             </div>
           ) : <div className="stub-tab"><h3>{activeTab}</h3><p>Раздел оставлен как заглушка этапа 1. Каркас вкладки есть, детальная логика будет подключаться следующими этапами.</p></div>}
         </>
       )}
     </section>
-  );
-}
-
-function EquipmentPlaceholder({ equipmentItem, objects, objectTypes, systems, onSelectSystem }: { equipmentItem: EquipmentEntity; objects: InfrastructureObject[]; objectTypes: ObjectType[]; systems: SystemEntity[]; onSelectSystem: (systemId: string) => void }) {
-  const type = objectTypes.find((item) => item.id === equipmentItem.typeId);
-  const placement = objects.find((item) => item.id === equipmentItem.placementObjectId);
-  const system = systems.find((item) => item.id === equipmentItem.systemId);
-  return (
-    <div className="parameter-card">
-      <div className="section-title"><h3>Карточка оборудования</h3><p>Безопасная заглушка до этапа Оборудование. Оборудование уже является отдельной сущностью и связано с системой.</p></div>
-      <div className="reference-fields-grid">
-        <label className="field-row"><span>Идентификатор</span><input value={equipmentItem.id} readOnly /></label>
-        <label className="field-row"><span>Наименование</span><input value={equipmentItem.name} readOnly /></label>
-        <label className="field-row"><span>Вид оборудования</span><input value={type?.name ?? 'Вид не найден'} readOnly /></label>
-        <label className="field-row"><span>Система</span><input value={system?.name ?? 'Не привязано'} readOnly /></label>
-        <label className="field-row"><span>Место размещения</span><input value={placement?.name ?? 'Не задано'} readOnly /></label>
-        <label className="field-row"><span>Количество</span><input value={equipmentItem.quantity} readOnly /></label>
-        <label className="field-row"><span>Единица измерения</span><input value={equipmentItem.unit} readOnly /></label>
-      </div>
-      {system ? <button type="button" className="secondary-action" onClick={() => onSelectSystem(system.id)}>Открыть систему</button> : null}
-    </div>
   );
 }
 
