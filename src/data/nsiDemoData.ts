@@ -10,6 +10,7 @@ import type {
 } from '../types/nsi';
 
 export const nsiSections: NsiSection[] = [
+  { id: 'overview', title: 'Обзор объектов', description: 'Краткая сводка заведенных объектов без полной глубокой иерархии' },
   { id: 'objects', title: 'Дерево объектов', description: 'Реальная структура объекта инфраструктуры без ограничений глубины' },
   { id: 'objectTypes', title: 'Дерево видов объектов', description: 'Справочник типов, параметров и допустимых дочерних видов' },
   { id: 'techCards', title: 'Техкарты', description: 'Карты работ, привязанные к помещению, системе или оборудованию' },

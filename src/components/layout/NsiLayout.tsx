@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type {
   CreateEntityKind,
   DetailsNotice,
@@ -20,6 +21,7 @@ import type {
   TreeNode,
 } from '../../types/nsi';
 import { DetailsPanel } from '../details/DetailsPanel';
+import { ObjectOverview } from '../overview/ObjectOverview';
 import { NsiTree } from '../tree/NsiTree';
 
 interface NsiLayoutProps {
@@ -48,6 +50,8 @@ interface NsiLayoutProps {
   techCards: TechCard[];
   dictionaries: DictionaryItem[];
   onSelectSection: (sectionId: NsiSectionId) => void;
+  onOpenObjectInTree: (objectId: string) => void;
+  onCreateRootFromTemplate: () => void;
   onSetSearchQuery: (value: string) => void;
   onToggleSort: () => void;
   onToggleExpanded: (nodeId: string) => void;
@@ -84,6 +88,14 @@ interface NsiLayoutProps {
   onUpdateTechCard: (id: string, patch: Partial<TechCard>) => void;
 }
 
+const sectionIcons: Record<NsiSectionId, string> = {
+  overview: '◎',
+  objects: '▥',
+  objectTypes: '◇',
+  techCards: '▤',
+  dictionaries: '☷',
+};
+
 export function NsiLayout({
   sections,
   activeSection,
@@ -110,6 +122,8 @@ export function NsiLayout({
   techCards,
   dictionaries,
   onSelectSection,
+  onOpenObjectInTree,
+  onCreateRootFromTemplate,
   onSetSearchQuery,
   onToggleSort,
   onToggleExpanded,
@@ -145,97 +159,142 @@ export function NsiLayout({
   onBulkLinkRoomsToSystem,
   onUpdateTechCard,
 }: NsiLayoutProps) {
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const detailsPanel = (
+    <DetailsPanel
+      selectedRef={selectedRef}
+      selectedEntity={selectedEntity}
+      activeTab={activeTab}
+      tabs={tabs}
+      activeGroupId={activeGroupId}
+      parameterGroups={parameterGroups}
+      showEmpty={showEmpty}
+      detailsNotice={detailsNotice}
+      pendingObjectDraft={pendingObjectDraft}
+      objects={objects}
+      objectTypes={objectTypes}
+      objectStructureTemplates={objectStructureTemplates}
+      systems={systems}
+      equipment={equipment}
+      techCards={techCards}
+      dictionaries={dictionaries}
+      onSetActiveTab={onSetActiveTab}
+      onSetActiveGroupId={onSetActiveGroupId}
+      onSetShowEmpty={onSetShowEmpty}
+      onDismissNotice={onDismissNotice}
+      onConfirmRetire={onConfirmRetire}
+      onCancelRetire={onCancelRetire}
+      onConfirmObjectTypeRetire={onConfirmObjectTypeRetire}
+      onUpdatePendingObjectDraft={onUpdatePendingObjectDraft}
+      onConfirmCreateObject={onConfirmCreateObject}
+      onCancelPendingObjectDraft={onCancelPendingObjectDraft}
+      onCreateObjectTypeForDraft={onCreateObjectTypeForDraft}
+      onUpdateObject={onUpdateObject}
+      onUpdateObjectType={onUpdateObjectType}
+      onToggleAllowedChildType={onToggleAllowedChildType}
+      onAddParameterGroup={onAddParameterGroup}
+      onRenameParameterGroup={onRenameParameterGroup}
+      onAddParameterToGroup={onAddParameterToGroup}
+      onUpdateParameter={onUpdateParameter}
+      onDeleteParameter={onDeleteParameter}
+      onToggleObjectSystemLink={onToggleObjectSystemLink}
+      onToggleEquipmentPlacement={onToggleEquipmentPlacement}
+      onToggleSystemRoomLink={onToggleSystemRoomLink}
+      onBulkLinkRoomsToSystem={onBulkLinkRoomsToSystem}
+      onUpdateTechCard={onUpdateTechCard}
+    />
+  );
+
   return (
     <div className="app-shell">
-      <aside className="sidebar">
-        <div className="brand-block">
-          <span className="brand-mark">НСИ</span>
+      <header className="topbar">
+        <div className="breadcrumbs" aria-label="Хлебные крошки">
+          <span>НСИ</span>
+          <b>/</b>
+          <strong>{activeSection.title}</strong>
+        </div>
+        <div className="user-block" aria-label="Пользователь">
+          <span className="user-avatar">УК</span>
           <div>
-            <h1>Модуль НСИ</h1>
-            <p>универсальная база исходных данных</p>
+            <b>Администратор</b>
+            <small>рабочее место НСИ</small>
           </div>
         </div>
+      </header>
 
-        <nav className="section-nav" aria-label="Разделы НСИ">
-          {sections.map((section) => (
-            <button
-              key={section.id}
-              type="button"
-              className={section.id === activeSectionId ? 'section-button active' : 'section-button'}
-              onClick={() => onSelectSection(section.id)}
-            >
-              <span>{section.title}</span>
-              <small>{section.description}</small>
-            </button>
-          ))}
-        </nav>
-      </aside>
+      <div className={isSidebarCollapsed ? 'app-body sidebar-collapsed' : 'app-body'}>
+        <aside className={isSidebarCollapsed ? 'sidebar collapsed' : 'sidebar'}>
+          <div className="brand-block">
+            <span className="brand-mark">НСИ</span>
+            <div className="brand-text">
+              <h1>Модуль НСИ</h1>
+              <p>исходные данные</p>
+            </div>
+          </div>
 
-      <main className="work-area">
-        <NsiTree
-          activeSection={activeSection}
-          activeSectionId={activeSectionId}
-          searchQuery={searchQuery}
-          sortAscending={sortAscending}
-          childrenByParentId={childrenByParentId}
-          expandedIds={expandedIds}
-          selectedRef={selectedRef}
-          pendingMoveRef={pendingMoveRef}
-          onSetSearchQuery={onSetSearchQuery}
-          onToggleSort={onToggleSort}
-          onToggleExpanded={onToggleExpanded}
-          onSelectNode={onSelectNode}
-          onStartDrag={onStartDrag}
-          onDropOnNode={onDropOnNode}
-          onCreate={onCreate}
-          onTreeAction={onTreeAction}
-          onMoveToNode={onMoveToNode}
-          onCancelMove={onCancelMove}
-        />
+          <button type="button" className="sidebar-toggle" onClick={() => setIsSidebarCollapsed((value) => !value)}>
+            {isSidebarCollapsed ? '→' : '←'}
+            <span>{isSidebarCollapsed ? 'Развернуть меню' : 'Свернуть меню'}</span>
+          </button>
 
-        <DetailsPanel
-          selectedRef={selectedRef}
-          selectedEntity={selectedEntity}
-          activeTab={activeTab}
-          tabs={tabs}
-          activeGroupId={activeGroupId}
-          parameterGroups={parameterGroups}
-          showEmpty={showEmpty}
-          detailsNotice={detailsNotice}
-          pendingObjectDraft={pendingObjectDraft}
-          objects={objects}
-          objectTypes={objectTypes}
-          objectStructureTemplates={objectStructureTemplates}
-          systems={systems}
-          equipment={equipment}
-          techCards={techCards}
-          dictionaries={dictionaries}
-          onSetActiveTab={onSetActiveTab}
-          onSetActiveGroupId={onSetActiveGroupId}
-          onSetShowEmpty={onSetShowEmpty}
-          onDismissNotice={onDismissNotice}
-          onConfirmRetire={onConfirmRetire}
-          onCancelRetire={onCancelRetire}
-          onConfirmObjectTypeRetire={onConfirmObjectTypeRetire}
-          onUpdatePendingObjectDraft={onUpdatePendingObjectDraft}
-          onConfirmCreateObject={onConfirmCreateObject}
-          onCancelPendingObjectDraft={onCancelPendingObjectDraft}
-          onCreateObjectTypeForDraft={onCreateObjectTypeForDraft}
-          onUpdateObject={onUpdateObject}
-          onUpdateObjectType={onUpdateObjectType}
-          onToggleAllowedChildType={onToggleAllowedChildType}
-          onAddParameterGroup={onAddParameterGroup}
-          onRenameParameterGroup={onRenameParameterGroup}
-          onAddParameterToGroup={onAddParameterToGroup}
-          onUpdateParameter={onUpdateParameter}
-          onDeleteParameter={onDeleteParameter}
-          onToggleObjectSystemLink={onToggleObjectSystemLink}
-          onToggleEquipmentPlacement={onToggleEquipmentPlacement}
-          onToggleSystemRoomLink={onToggleSystemRoomLink}
-          onBulkLinkRoomsToSystem={onBulkLinkRoomsToSystem}
-          onUpdateTechCard={onUpdateTechCard}
-        />
-      </main>
+          <nav className="section-nav" aria-label="Разделы НСИ">
+            <span className="nav-group-title">НСИ</span>
+            {sections.map((section) => (
+              <button
+                key={section.id}
+                type="button"
+                className={section.id === activeSectionId ? 'section-button active' : 'section-button'}
+                onClick={() => onSelectSection(section.id)}
+                title={section.title}
+              >
+                <span className="section-icon">{sectionIcons[section.id]}</span>
+                <span className="section-label">{section.title}</span>
+                <small>{section.description}</small>
+              </button>
+            ))}
+          </nav>
+        </aside>
+
+        {activeSectionId === 'overview' ? (
+          <main className="work-area overview-work-area">
+            <ObjectOverview
+              objects={objects}
+              objectTypes={objectTypes}
+              systems={systems}
+              equipment={equipment}
+              techCards={techCards}
+              onAddObject={() => onCreate('rootObject')}
+              onCreateFromTemplate={onCreateRootFromTemplate}
+              onOpenInTree={onOpenObjectInTree}
+            />
+            {detailsPanel}
+          </main>
+        ) : (
+          <main className="work-area">
+            <NsiTree
+              activeSection={activeSection}
+              activeSectionId={activeSectionId}
+              searchQuery={searchQuery}
+              sortAscending={sortAscending}
+              childrenByParentId={childrenByParentId}
+              expandedIds={expandedIds}
+              selectedRef={selectedRef}
+              pendingMoveRef={pendingMoveRef}
+              onSetSearchQuery={onSetSearchQuery}
+              onToggleSort={onToggleSort}
+              onToggleExpanded={onToggleExpanded}
+              onSelectNode={onSelectNode}
+              onStartDrag={onStartDrag}
+              onDropOnNode={onDropOnNode}
+              onCreate={onCreate}
+              onTreeAction={onTreeAction}
+              onMoveToNode={onMoveToNode}
+              onCancelMove={onCancelMove}
+            />
+            {detailsPanel}
+          </main>
+        )}
+      </div>
     </div>
   );
 }

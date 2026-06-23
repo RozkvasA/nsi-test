@@ -24,6 +24,7 @@ import type {
   ParameterGroupId,
   ParameterGroupView,
   PendingObjectDraft,
+  RootObjectCreationMode,
   SelectedRef,
   SystemEntity,
   TechCard,
@@ -52,6 +53,7 @@ const parameterGroups: ParameterGroupView[] = [
 ];
 
 const nextKindBySection: Record<NsiSectionId, EntityKind> = {
+  overview: 'object',
   objects: 'object',
   objectTypes: 'objectType',
   techCards: 'techCard',
@@ -59,7 +61,7 @@ const nextKindBySection: Record<NsiSectionId, EntityKind> = {
 };
 
 function App() {
-  const [activeSectionId, setActiveSectionId] = useState<NsiSectionId>('objects');
+  const [activeSectionId, setActiveSectionId] = useState<NsiSectionId>('overview');
   const [objects, setObjects] = useState<InfrastructureObject[]>(initialObjects);
   const [objectTypes, setObjectTypes] = useState<ObjectType[]>(initialObjectTypes);
   const [objectStructureTemplates] = useState<ObjectStructureTemplate[]>(initialObjectStructureTemplates);
@@ -100,8 +102,13 @@ function App() {
 
   const selectSection = (sectionId: NsiSectionId) => {
     const nextNodes = buildTreeNodes(sectionId, objects, systems, equipment, techCards, dictionaries, objectTypes);
+    const firstRootObject = objects.find((object) => object.parentId === null);
     setActiveSectionId(sectionId);
-    setSelectedRef({ kind: nextKindBySection[sectionId], id: nextNodes[0]?.id ?? '' });
+    setSelectedRef(
+      sectionId === 'overview'
+        ? { kind: 'object', id: firstRootObject?.id ?? '' }
+        : { kind: nextKindBySection[sectionId], id: nextNodes[0]?.id ?? '' },
+    );
     setSearchQuery('');
     setExpandedIds(new Set());
     setPendingMoveRef(null);
@@ -136,7 +143,11 @@ function App() {
     return allowedType?.id ?? fallbackType?.id ?? firstTypeId;
   };
 
-  const startObjectDraft = (kind: Extract<CreateEntityKind, 'rootObject' | 'childObject' | 'room'>, parentObjectId?: string | null) => {
+  const startObjectDraft = (
+    kind: Extract<CreateEntityKind, 'rootObject' | 'childObject' | 'room'>,
+    parentObjectId?: string | null,
+    creationMode: RootObjectCreationMode = 'empty',
+  ) => {
     const parentId = kind === 'rootObject' ? null : parentObjectId ?? (selectedRef.kind === 'object' ? selectedRef.id : null);
     const defaultTemplate = objectStructureTemplates[0];
     setPendingObjectDraft({
@@ -148,7 +159,7 @@ function App() {
       area: null,
       quantity: 1,
       unit: kind === 'rootObject' ? 'объект' : kind === 'room' ? 'помещение' : 'ед.',
-      creationMode: 'empty',
+      creationMode,
       templateId: defaultTemplate?.id ?? '',
       detailLevel: kind === 'rootObject' ? defaultTemplate?.detailLevel ?? 1 : 1,
     });
@@ -157,6 +168,29 @@ function App() {
       title: 'Создание объекта учета',
       message: 'Выберите вид объекта или шаблон структуры в правой карточке. Если нужного вида нет, создайте его из этой же карточки.',
     });
+  };
+
+  const handleCreateRootFromTemplate = () => {
+    startObjectDraft('rootObject', null, 'template');
+  };
+
+  const openObjectInTree = (objectId: string) => {
+    const ancestorIds: string[] = [];
+    let current = objects.find((object) => object.id === objectId);
+    const visited = new Set<string>();
+
+    while (current?.parentId) {
+      if (visited.has(current.id)) break;
+      visited.add(current.id);
+      ancestorIds.push(current.parentId);
+      current = objects.find((object) => object.id === current?.parentId);
+    }
+
+    setActiveSectionId('objects');
+    setSelectedRef({ kind: 'object', id: objectId });
+    setExpandedIds((prev) => new Set([...prev, ...ancestorIds]));
+    setPendingMoveRef(null);
+    resetRightPanel();
   };
 
   const createObjectTypeSeed = (parentTypeId: string | null, name = 'Новый вид объекта'): ObjectType => {
@@ -459,6 +493,8 @@ function App() {
       techCards={techCards}
       dictionaries={dictionaries}
       onSelectSection={selectSection}
+      onOpenObjectInTree={openObjectInTree}
+      onCreateRootFromTemplate={handleCreateRootFromTemplate}
       onSetSearchQuery={setSearchQuery}
       onToggleSort={() => setSortAscending((value) => !value)}
       onToggleExpanded={toggleExpanded}
