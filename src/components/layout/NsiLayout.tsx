@@ -49,6 +49,7 @@ interface NsiLayoutProps {
   equipment: EquipmentEntity[];
   techCards: TechCard[];
   dictionaries: DictionaryItem[];
+  selectedContextObjectId: string | null;
   onSelectSection: (sectionId: NsiSectionId) => void;
   onOpenObjectInTree: (objectId: string) => void;
   onCreateRootFromTemplate: () => void;
@@ -75,6 +76,14 @@ interface NsiLayoutProps {
   onCreateObjectTypeForDraft: () => void;
   onUpdateObject: (id: string, patch: Partial<InfrastructureObject>) => void;
   onUpdateObjectType: (id: string, patch: Partial<ObjectType>) => void;
+  onUpdateSystem: (id: string, patch: Partial<SystemEntity>) => void;
+  onCreateSystemType: (systemId: string) => void;
+  onAddEquipmentToSystem: (systemId: string) => void;
+  onDetachEquipmentFromSystem: (systemId: string, equipmentId: string) => void;
+  onSelectSystem: (systemId: string, contextObjectId?: string | null) => void;
+  onSelectEquipment: (equipmentId: string) => void;
+  onLinkSystemToContextObject: (systemId: string) => void;
+  onLinkSystemToRoomsInContext: (systemId: string) => void;
   onToggleAllowedChildType: (typeId: string, childTypeId: string) => void;
   onAddParameterGroup: (typeId: string) => void;
   onRenameParameterGroup: (typeId: string, groupId: string, name: string) => void;
@@ -88,13 +97,7 @@ interface NsiLayoutProps {
   onUpdateTechCard: (id: string, patch: Partial<TechCard>) => void;
 }
 
-const sectionIcons: Record<NsiSectionId, string> = {
-  overview: '◎',
-  objects: '▥',
-  objectTypes: '◇',
-  techCards: '▤',
-  dictionaries: '☷',
-};
+const sectionIcons: Record<NsiSectionId, string> = { overview: '◎', objects: '▥', objectTypes: '◇', techCards: '▤', dictionaries: '☷' };
 
 export function NsiLayout({
   sections,
@@ -121,6 +124,7 @@ export function NsiLayout({
   equipment,
   techCards,
   dictionaries,
+  selectedContextObjectId,
   onSelectSection,
   onOpenObjectInTree,
   onCreateRootFromTemplate,
@@ -147,6 +151,14 @@ export function NsiLayout({
   onCreateObjectTypeForDraft,
   onUpdateObject,
   onUpdateObjectType,
+  onUpdateSystem,
+  onCreateSystemType,
+  onAddEquipmentToSystem,
+  onDetachEquipmentFromSystem,
+  onSelectSystem,
+  onSelectEquipment,
+  onLinkSystemToContextObject,
+  onLinkSystemToRoomsInContext,
   onToggleAllowedChildType,
   onAddParameterGroup,
   onRenameParameterGroup,
@@ -178,6 +190,7 @@ export function NsiLayout({
       equipment={equipment}
       techCards={techCards}
       dictionaries={dictionaries}
+      selectedContextObjectId={selectedContextObjectId}
       onSetActiveTab={onSetActiveTab}
       onSetActiveGroupId={onSetActiveGroupId}
       onSetShowEmpty={onSetShowEmpty}
@@ -191,6 +204,14 @@ export function NsiLayout({
       onCreateObjectTypeForDraft={onCreateObjectTypeForDraft}
       onUpdateObject={onUpdateObject}
       onUpdateObjectType={onUpdateObjectType}
+      onUpdateSystem={onUpdateSystem}
+      onCreateSystemType={onCreateSystemType}
+      onAddEquipmentToSystem={onAddEquipmentToSystem}
+      onDetachEquipmentFromSystem={onDetachEquipmentFromSystem}
+      onSelectSystem={onSelectSystem}
+      onSelectEquipment={onSelectEquipment}
+      onLinkSystemToContextObject={onLinkSystemToContextObject}
+      onLinkSystemToRoomsInContext={onLinkSystemToRoomsInContext}
       onToggleAllowedChildType={onToggleAllowedChildType}
       onAddParameterGroup={onAddParameterGroup}
       onRenameParameterGroup={onRenameParameterGroup}
@@ -208,89 +229,28 @@ export function NsiLayout({
   return (
     <div className="app-shell">
       <header className="topbar">
-        <div className="breadcrumbs" aria-label="Хлебные крошки">
-          <span>НСИ</span>
-          <b>/</b>
-          <strong>{activeSection.title}</strong>
-        </div>
-        <div className="user-block" aria-label="Пользователь">
-          <span className="user-avatar">УК</span>
-          <div>
-            <b>Администратор</b>
-            <small>рабочее место НСИ</small>
-          </div>
-        </div>
+        <div className="breadcrumbs" aria-label="Хлебные крошки"><span>НСИ</span><b>/</b><strong>{activeSection.title}</strong></div>
+        <div className="user-block" aria-label="Пользователь"><span className="user-avatar">УК</span><div><b>Администратор</b><small>рабочее место НСИ</small></div></div>
       </header>
 
       <div className={isSidebarCollapsed ? 'app-body sidebar-collapsed' : 'app-body'}>
         <aside className={isSidebarCollapsed ? 'sidebar collapsed' : 'sidebar'}>
-          <div className="brand-block">
-            <span className="brand-mark">НСИ</span>
-            <div className="brand-text">
-              <h1>Модуль НСИ</h1>
-              <p>исходные данные</p>
-            </div>
-          </div>
-
-          <button type="button" className="sidebar-toggle" onClick={() => setIsSidebarCollapsed((value) => !value)}>
-            {isSidebarCollapsed ? '→' : '←'}
-            <span>{isSidebarCollapsed ? 'Развернуть меню' : 'Свернуть меню'}</span>
-          </button>
-
+          <div className="brand-block"><span className="brand-mark">НСИ</span><div className="brand-text"><h1>Модуль НСИ</h1><p>исходные данные</p></div></div>
+          <button type="button" className="sidebar-toggle" onClick={() => setIsSidebarCollapsed((value) => !value)}>{isSidebarCollapsed ? '→' : '←'}<span>{isSidebarCollapsed ? 'Развернуть меню' : 'Свернуть меню'}</span></button>
           <nav className="section-nav" aria-label="Разделы НСИ">
             <span className="nav-group-title">НСИ</span>
-            {sections.map((section) => (
-              <button
-                key={section.id}
-                type="button"
-                className={section.id === activeSectionId ? 'section-button active' : 'section-button'}
-                onClick={() => onSelectSection(section.id)}
-                title={section.title}
-              >
-                <span className="section-icon">{sectionIcons[section.id]}</span>
-                <span className="section-label">{section.title}</span>
-                <small>{section.description}</small>
-              </button>
-            ))}
+            {sections.map((section) => <button key={section.id} type="button" className={section.id === activeSectionId ? 'section-button active' : 'section-button'} onClick={() => onSelectSection(section.id)} title={section.title}><span className="section-icon">{sectionIcons[section.id]}</span><span className="section-label">{section.title}</span><small>{section.description}</small></button>)}
           </nav>
         </aside>
 
         {activeSectionId === 'overview' ? (
           <main className="work-area overview-work-area">
-            <ObjectOverview
-              objects={objects}
-              objectTypes={objectTypes}
-              systems={systems}
-              equipment={equipment}
-              techCards={techCards}
-              onAddObject={() => onCreate('rootObject')}
-              onCreateFromTemplate={onCreateRootFromTemplate}
-              onOpenInTree={onOpenObjectInTree}
-            />
+            <ObjectOverview objects={objects} objectTypes={objectTypes} systems={systems} equipment={equipment} techCards={techCards} onAddObject={() => onCreate('rootObject')} onCreateFromTemplate={onCreateRootFromTemplate} onOpenInTree={onOpenObjectInTree} />
             {detailsPanel}
           </main>
         ) : (
           <main className="work-area">
-            <NsiTree
-              activeSection={activeSection}
-              activeSectionId={activeSectionId}
-              searchQuery={searchQuery}
-              sortAscending={sortAscending}
-              childrenByParentId={childrenByParentId}
-              expandedIds={expandedIds}
-              selectedRef={selectedRef}
-              pendingMoveRef={pendingMoveRef}
-              onSetSearchQuery={onSetSearchQuery}
-              onToggleSort={onToggleSort}
-              onToggleExpanded={onToggleExpanded}
-              onSelectNode={onSelectNode}
-              onStartDrag={onStartDrag}
-              onDropOnNode={onDropOnNode}
-              onCreate={onCreate}
-              onTreeAction={onTreeAction}
-              onMoveToNode={onMoveToNode}
-              onCancelMove={onCancelMove}
-            />
+            <NsiTree activeSection={activeSection} activeSectionId={activeSectionId} searchQuery={searchQuery} sortAscending={sortAscending} childrenByParentId={childrenByParentId} expandedIds={expandedIds} selectedRef={selectedRef} pendingMoveRef={pendingMoveRef} onSetSearchQuery={onSetSearchQuery} onToggleSort={onToggleSort} onToggleExpanded={onToggleExpanded} onSelectNode={onSelectNode} onStartDrag={onStartDrag} onDropOnNode={onDropOnNode} onCreate={onCreate} onTreeAction={onTreeAction} onMoveToNode={onMoveToNode} onCancelMove={onCancelMove} />
             {detailsPanel}
           </main>
         )}
