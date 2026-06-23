@@ -17,13 +17,37 @@ export interface OverviewSystemItem {
   equipmentCount: number;
 }
 
+export interface OverviewEquipmentItem {
+  id: string;
+  name: string;
+  typeName: string;
+  quantity: number;
+  unit: string;
+  placementName: string;
+}
+
+export interface OverviewTechCardItem {
+  id: string;
+  name: string;
+  type: string;
+  targetType: string;
+}
+
 export interface OverviewDetailNode {
   id: string;
   name: string;
   typeName: string;
   path: string;
+  area: number | null;
+  roomsCount: number;
+  systemsCount: number;
+  equipmentCount: number;
+  techCardsCount: number;
+  warnings: string[];
   rooms: OverviewRoomItem[];
   systems: OverviewSystemItem[];
+  equipment: OverviewEquipmentItem[];
+  techCards: OverviewTechCardItem[];
 }
 
 export interface OverviewOutlineNode {
@@ -54,6 +78,7 @@ export interface OverviewRootCard {
 const getTypeName = (objectTypes: ObjectType[], typeId: string) => objectTypes.find((type) => type.id === typeId)?.name ?? 'Вид не задан';
 const isRoomObject = (objectTypes: ObjectType[], object: InfrastructureObject) => objectTypes.find((type) => type.id === object.typeId)?.code === 'ROOM';
 const isZoneLikeObject = (objectTypes: ObjectType[], object: InfrastructureObject) => ['ROOM', 'ZONE'].includes(objectTypes.find((type) => type.id === object.typeId)?.code ?? '');
+const objectName = (objects: InfrastructureObject[], objectId: string) => objects.find((object) => object.id === objectId)?.name ?? 'размещение не найдено';
 
 function getDescendantIds(objects: InfrastructureObject[], rootId: string): string[] {
   const children = objects.filter((object) => object.parentId === rootId);
@@ -108,8 +133,8 @@ function getApplicableSystems(node: InfrastructureObject, objects: Infrastructur
 }
 
 function getRoomsForDetailNode(node: InfrastructureObject, objects: InfrastructureObject[], objectTypes: ObjectType[]): OverviewRoomItem[] {
-  const subtreeObjects = objects.filter((object) => [node.id, ...getDescendantIds(objects, node.id)].includes(object.id));
-  const items = subtreeObjects.filter((object) => object.id !== node.id && isZoneLikeObject(objectTypes, object));
+  const subtreeIds = [node.id, ...getDescendantIds(objects, node.id)];
+  const items = objects.filter((object) => subtreeIds.includes(object.id) && object.id !== node.id && isZoneLikeObject(objectTypes, object));
 
   return items.map((object) => ({
     id: object.id,
@@ -120,24 +145,68 @@ function getRoomsForDetailNode(node: InfrastructureObject, objects: Infrastructu
   }));
 }
 
-function toDetailNode(node: InfrastructureObject, objects: InfrastructureObject[], objectTypes: ObjectType[], systems: SystemEntity[]): OverviewDetailNode {
+function getEquipmentForDetailNode(node: InfrastructureObject, objects: InfrastructureObject[], objectTypes: ObjectType[], systems: SystemEntity[], equipment: EquipmentEntity[]): OverviewEquipmentItem[] {
+  const subtreeIds = [node.id, ...getDescendantIds(objects, node.id)];
+  const applicableSystems = getApplicableSystems(node, objects, systems);
+  const applicableSystemIds = new Set(applicableSystems.map((system) => system.id));
+  const applicableEquipmentIds = new Set(systems.filter((system) => applicableSystemIds.has(system.id)).flatMap((system) => system.equipmentIds));
+
+  return equipment
+    .filter((item) => subtreeIds.includes(item.placementObjectId) || applicableEquipmentIds.has(item.id))
+    .map((item) => ({
+      id: item.id,
+      name: item.name,
+      typeName: getTypeName(objectTypes, item.typeId),
+      quantity: item.quantity,
+      unit: item.unit,
+      placementName: objectName(objects, item.placementObjectId),
+    }));
+}
+
+function getTechCardsForDetailNode(node: InfrastructureObject, objects: InfrastructureObject[], objectTypes: ObjectType[], systems: SystemEntity[], equipment: EquipmentEntity[], techCards: TechCard[]): OverviewTechCardItem[] {
+  const subtreeIds = [node.id, ...getDescendantIds(objects, node.id)];
+  const applicableSystems = getApplicableSystems(node, objects, systems);
+  const applicableEquipment = getEquipmentForDetailNode(node, objects, objectTypes, systems, equipment);
+  const targetIds = new Set([...subtreeIds, ...applicableSystems.map((system) => system.id), ...applicableEquipment.map((item) => item.id)]);
+
+  return techCards
+    .filter((card) => targetIds.has(card.targetId))
+    .map((card) => ({ id: card.id, name: card.name || 'Техкарта без наименования', type: card.type || 'тип не задан', targetType: card.targetType }));
+}
+
+function toDetailNode(node: InfrastructureObject, objects: InfrastructureObject[], objectTypes: ObjectType[], systems: SystemEntity[], equipment: EquipmentEntity[], techCards: TechCard[]): OverviewDetailNode {
+  const objectType = objectTypes.find((type) => type.id === node.typeId);
+  const rooms = getRoomsForDetailNode(node, objects, objectTypes);
+  const nodeSystems = getApplicableSystems(node, objects, systems);
+  const nodeEquipment = getEquipmentForDetailNode(node, objects, objectTypes, systems, equipment);
+  const nodeTechCards = getTechCardsForDetailNode(node, objects, objectTypes, systems, equipment, techCards);
+  const warnings = [node.status === 'retired' ? 'объект снят с учета' : null, ...collectRequiredParameterWarnings(node, objectType)].filter((item): item is string => Boolean(item));
+
   return {
     id: node.id,
     name: node.name,
     typeName: getTypeName(objectTypes, node.typeId),
     path: getPath(objects, node.id),
-    rooms: getRoomsForDetailNode(node, objects, objectTypes),
-    systems: getApplicableSystems(node, objects, systems),
+    area: node.area,
+    roomsCount: rooms.length,
+    systemsCount: nodeSystems.length,
+    equipmentCount: nodeEquipment.length,
+    techCardsCount: nodeTechCards.length,
+    warnings,
+    rooms,
+    systems: nodeSystems,
+    equipment: nodeEquipment,
+    techCards: nodeTechCards,
   };
 }
 
-function buildOutlineNodes(root: InfrastructureObject, objects: InfrastructureObject[], objectTypes: ObjectType[], systems: SystemEntity[], detailLevel: number): OverviewOutlineNode[] {
+function buildOutlineNodes(root: InfrastructureObject, objects: InfrastructureObject[], objectTypes: ObjectType[], systems: SystemEntity[], equipment: EquipmentEntity[], techCards: TechCard[], detailLevel: number): OverviewOutlineNode[] {
   const rootChildNodes = objects.filter((object) => object.parentId === root.id);
 
   return rootChildNodes.map((child) => {
     const childSubtreeIds = [child.id, ...getDescendantIds(objects, child.id)];
     const detailCandidates = objects.filter((object) => childSubtreeIds.includes(object.id) && getObjectLevel(objects, object.id) === detailLevel);
-    const detailChildren = (detailCandidates.length > 0 ? detailCandidates : [child]).map((node) => toDetailNode(node, objects, objectTypes, systems));
+    const detailChildren = (detailCandidates.length > 0 ? detailCandidates : [child]).map((node) => toDetailNode(node, objects, objectTypes, systems, equipment, techCards));
 
     return {
       id: child.id,
@@ -182,8 +251,8 @@ export function buildObjectOverviewCards(
         equipmentCount: equipmentInBranch.length,
         techCardsCount: techCards.filter((card) => targetIdsForTechCards.has(card.targetId)).length,
         warnings,
-        detailNodes: (detailNodes.length > 0 ? detailNodes : [root]).map((node) => toDetailNode(node, objects, objectTypes, systems)),
-        outlineNodes: buildOutlineNodes(root, objects, objectTypes, systems, detailLevel),
+        detailNodes: (detailNodes.length > 0 ? detailNodes : [root]).map((node) => toDetailNode(node, objects, objectTypes, systems, equipment, techCards)),
+        outlineNodes: buildOutlineNodes(root, objects, objectTypes, systems, equipment, techCards, detailLevel),
       };
     });
 }
