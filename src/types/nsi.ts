@@ -136,6 +136,7 @@ export interface ParameterGroup {
 export interface InfrastructureObject {
   id: string;
   name: string;
+  description?: string;
   shortName: string;
   typeId: string;
   parentId: string | null;
