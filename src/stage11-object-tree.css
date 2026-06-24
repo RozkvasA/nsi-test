@@ -1,5 +1,5 @@
 .work-area:not(.overview-work-area) {
-  grid-template-columns: minmax(300px, 36%) minmax(0, 1fr);
+  grid-template-columns: minmax(280px, 32%) minmax(0, 1fr);
   min-width: 0;
   overflow: hidden;
 }
@@ -14,10 +14,10 @@
 }
 
 .tree-row {
-  min-height: 34px;
-  gap: 6px;
-  padding-top: 5px;
-  padding-bottom: 5px;
+  min-height: 30px;
+  gap: 5px;
+  padding-top: 4px;
+  padding-bottom: 4px;
 }
 
 .tree-main {
@@ -33,30 +33,30 @@
 }
 
 .tree-main strong {
-  font-size: 13px;
-  line-height: 1.15;
+  font-size: 12.5px;
+  line-height: 1.12;
 }
 
 .tree-main span,
 .tree-summary {
-  font-size: 11px;
-  line-height: 1.15;
+  font-size: 10.5px;
+  line-height: 1.12;
 }
 
 .tree-summary {
   display: flex;
   justify-content: flex-end;
-  min-width: 84px;
-  max-width: 190px;
+  min-width: 64px;
+  max-width: 140px;
   color: #52697d;
   font-weight: 700;
 }
 
 .expand-button,
 .row-menu {
-  width: 22px;
-  height: 22px;
-  min-width: 22px;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
 }
 
 .virtual-folder-row {
@@ -76,7 +76,7 @@
 .readonly-row:not(.empty-tree-row):not(.virtual-folder-row) .tree-main strong::after {
   content: ' · наслед.';
   color: #7b8fa1;
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 700;
 }
 
@@ -102,19 +102,23 @@
   font-weight: 800;
 }
 
+.inherited-systems-card {
+  margin-bottom: 12px;
+}
+
 @media (max-width: 1280px) {
   .work-area:not(.overview-work-area) {
-    grid-template-columns: minmax(280px, 34%) minmax(0, 1fr);
+    grid-template-columns: minmax(260px, 30%) minmax(0, 1fr);
     gap: 10px;
   }
 
   .tree-summary {
-    max-width: 132px;
-    min-width: 72px;
+    max-width: 108px;
+    min-width: 58px;
   }
 
   .tree-main span {
-    max-width: 150px;
+    max-width: 136px;
   }
 }
 
@@ -126,7 +130,7 @@
   }
 
   .tree-panel {
-    min-height: 360px;
+    min-height: 340px;
     max-height: 48vh;
   }
 
@@ -135,6 +139,6 @@
   }
 
   .tree-row {
-    grid-template-columns: auto minmax(0, 1fr) minmax(54px, auto) auto auto;
+    grid-template-columns: auto minmax(0, 1fr) minmax(48px, auto) auto auto;
   }
 }
