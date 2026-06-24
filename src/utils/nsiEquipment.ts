@@ -61,7 +61,6 @@ export function normalizeEquipmentParameterInput(parameter: ParameterDefinition,
 export function getEquipmentWarnings(equipmentItem: EquipmentEntity, equipment: EquipmentEntity[], systems: SystemEntity[]): string[] {
   const warnings: string[] = [];
   if (!equipmentItem.typeId) warnings.push('оборудование без вида');
-  if (!equipmentItem.systemId) warnings.push('оборудование без системы');
   if (!equipmentItem.placementObjectId) warnings.push('оборудование без места размещения');
 
   if (equipmentItem.parentEquipmentId) {
@@ -69,7 +68,7 @@ export function getEquipmentWarnings(equipmentItem: EquipmentEntity, equipment: 
     const descendantIds = buildEquipmentDescendantIds(equipment, equipmentItem.id);
     if (descendantIds.includes(equipmentItem.parentEquipmentId)) warnings.push('родителем выбран собственный потомок');
     const parent = equipment.find((item) => item.id === equipmentItem.parentEquipmentId);
-    if (parent && parent.systemId !== equipmentItem.systemId) warnings.push('родительское оборудование находится в другой системе');
+    if (parent && parent.systemId && equipmentItem.systemId && parent.systemId !== equipmentItem.systemId) warnings.push('родительское оборудование находится в другой системе');
   }
 
   if (equipmentItem.systemId && !systems.some((system) => system.id === equipmentItem.systemId)) warnings.push('указанная система не найдена');
@@ -88,7 +87,17 @@ export function getEquipmentPlacementInfo(objects: InfrastructureObject[], equip
   };
 }
 
+export function getEquipmentSystemLabel(equipmentItem: EquipmentEntity, systems: SystemEntity[]) {
+  if (!equipmentItem.systemId) return 'Не входит в систему';
+  return systems.find((system) => system.id === equipmentItem.systemId)?.name ?? 'Система не найдена';
+}
+
 export function formatEquipmentSummary(equipmentItem: EquipmentEntity, equipment: EquipmentEntity[], systems: SystemEntity[]): string {
   const warnings = getEquipmentWarnings(equipmentItem, equipment, systems);
-  return [equipmentItem.quantity ? `${equipmentItem.quantity} ${equipmentItem.unit}` : null, equipmentItem.systemId ? `система: ${equipmentItem.systemId}` : 'без системы', equipmentItem.placementObjectId ? `размещение: ${equipmentItem.placementObjectId}` : 'без размещения', warnings.length > 0 ? `${warnings.length} предупрежд.` : null].filter(Boolean).join(' · ');
+  return [
+    equipmentItem.quantity ? `${equipmentItem.quantity} ${equipmentItem.unit}` : null,
+    getEquipmentSystemLabel(equipmentItem, systems),
+    equipmentItem.placementObjectId ? `размещение: ${equipmentItem.placementObjectId}` : 'без размещения',
+    warnings.length > 0 ? `${warnings.length} предупрежд.` : null,
+  ].filter(Boolean).join(' · ');
 }
