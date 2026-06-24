@@ -11,6 +11,10 @@ export const systemScopeLabels: Record<SystemEntity['scopeType'], string> = {
 
 const systemCoreCodes = new Set(['id', 'name', 'typeId', 'parentSystemId', 'scopeType', 'scopeObjectIds', 'linkedRoomIds', 'equipmentIds', 'quantity', 'unit']);
 
+export function getSystemEquipment(system: SystemEntity, equipment: EquipmentEntity[]): EquipmentEntity[] {
+  return equipment.filter((item) => item.systemId === system.id || system.equipmentIds.includes(item.id));
+}
+
 export function createSystemEntity(args: { createdAt: number; typeId: string; parentObject: InfrastructureObject | null; isRoom: boolean }): SystemEntity {
   return {
     id: `sys-${args.createdAt}`,
@@ -74,23 +78,18 @@ export function normalizeSystemParameterInput(parameter: ParameterDefinition, ra
 
 export function getSystemWarnings(system: SystemEntity, equipment: EquipmentEntity[]): string[] {
   const warnings: string[] = [];
+  const systemEquipment = getSystemEquipment(system, equipment);
   if (!system.typeId) warnings.push('система без вида');
-  if (!system.scopeType) warnings.push('не задана область применения');
-  if (system.scopeObjectIds.length === 0 && system.linkedRoomIds.length === 0) warnings.push('нет связанных объектов или помещений');
-
-  const equipmentWithoutPlacement = equipment.filter((item) => (item.systemId === system.id || system.equipmentIds.includes(item.id)) && !item.placementObjectId);
+  if (!system.scopeType) warnings.push('не задана область действия');
+  if (system.scopeObjectIds.length === 0 && system.linkedRoomIds.length === 0) warnings.push('нет области действия');
+  if (systemEquipment.length === 0) warnings.push('нет оборудования');
+  const equipmentWithoutPlacement = systemEquipment.filter((item) => !item.placementObjectId);
   if (equipmentWithoutPlacement.length > 0) warnings.push(`оборудование без места размещения: ${equipmentWithoutPlacement.length}`);
-
   return warnings;
 }
 
 export function formatSystemSummary(system: SystemEntity, equipment: EquipmentEntity[]): string {
+  const systemEquipment = getSystemEquipment(system, equipment);
   const warnings = getSystemWarnings(system, equipment);
-  return [
-    systemScopeLabels[system.scopeType],
-    `${system.scopeObjectIds.length} объект(ов)`,
-    `${system.linkedRoomIds.length} помещ.`,
-    `${equipment.filter((item) => item.systemId === system.id || system.equipmentIds.includes(item.id)).length} обор.`,
-    warnings.length > 0 ? `${warnings.length} предупрежд.` : null,
-  ].filter(Boolean).join(' · ');
+  return [systemScopeLabels[system.scopeType], `${system.scopeObjectIds.length} объект`, `${system.linkedRoomIds.length} помещ.`, `обор. ${systemEquipment.length}`, warnings.length > 0 ? `⚠ ${warnings.length}` : null].filter(Boolean).join(' · ');
 }
