@@ -5,6 +5,7 @@ import {
   getApplicableTechCardsForEquipment,
   getEquipmentParameterValue,
   getEquipmentPlacementInfo,
+  getEquipmentSystemLabel,
   getEquipmentTypeParameters,
   getEquipmentWarnings,
   normalizeEquipmentParameterInput,
@@ -31,7 +32,6 @@ interface EquipmentContentProps {
 
 const typeLabel = (objectTypes: ObjectType[], typeId: string) => objectTypes.find((type) => type.id === typeId)?.name ?? 'Вид не найден';
 const objectLabel = (objects: InfrastructureObject[], objectId: string) => objects.find((object) => object.id === objectId)?.name ?? 'Не задано';
-const systemLabel = (systems: SystemEntity[], systemId: string) => systems.find((system) => system.id === systemId)?.name ?? 'Система не найдена';
 
 export function EquipmentContent({
   equipmentItem,
@@ -92,8 +92,14 @@ function EquipmentParameters({
 }) {
   const equipmentType = objectTypes.find((type) => type.id === equipmentItem.typeId);
   const blockedParentIds = new Set([equipmentItem.id, ...buildEquipmentDescendantIds(equipment, equipmentItem.id)]);
-  const parentOptions = [{ value: '', label: 'Нет родительского оборудования' }, ...equipment.filter((item) => !blockedParentIds.has(item.id) && item.systemId === equipmentItem.systemId).map((item) => ({ value: item.id, label: item.name }))];
+  const parentOptions = [
+    { value: '', label: 'Нет родительского оборудования' },
+    ...equipment
+      .filter((item) => !blockedParentIds.has(item.id) && item.systemId === equipmentItem.systemId)
+      .map((item) => ({ value: item.id, label: item.name })),
+  ];
   const equipmentTypeParameters = getEquipmentTypeParameters(equipmentType);
+  const systemOptions = [{ value: '', label: 'Не входит в систему' }, ...systems.map((system) => ({ value: system.id, label: system.name }))];
 
   const updateEquipmentParameterValue = (parameter: ParameterDefinition, value: ParameterDefaultValue) => {
     patchEquipment({ parameters: { ...equipmentItem.parameters, [parameter.code]: value } });
@@ -101,12 +107,11 @@ function EquipmentParameters({
 
   return (
     <div className="parameter-section reference-table-section">
-      <SectionTitle title="Параметры оборудования" description="Оборудование ведется внутри системы. Периодичность обслуживания здесь не хранится, она относится к технологической карте." />
+      <SectionTitle title="Основные данные оборудования" description="Оборудование может быть составом системы или самостоятельным элементом. Место размещения остается обязательным." />
       <div className="reference-fields-grid">
-        <ReadOnlyField label="Идентификатор" value={equipmentItem.id} />
         <EditableField label="Наименование" value={equipmentItem.name} onChange={(value) => patchEquipment({ name: value })} />
-        <SelectField label="Вид оборудования" value={equipmentItem.typeId} options={objectTypes.map((type) => ({ value: type.id, label: `${type.icon} ${type.name}` }))} onChange={(value) => patchEquipment({ typeId: value })} />
-        <SelectField label="Система" value={equipmentItem.systemId} options={systems.map((system) => ({ value: system.id, label: system.name }))} onChange={(value) => patchEquipment({ systemId: value })} />
+        <SelectField label="Вид элемента" value={equipmentItem.typeId} options={objectTypes.map((type) => ({ value: type.id, label: `${type.icon} ${type.name}` }))} onChange={(value) => patchEquipment({ typeId: value })} />
+        <SelectField label="Система" value={equipmentItem.systemId} options={systemOptions} onChange={(value) => patchEquipment({ systemId: value, parentEquipmentId: '' })} />
         <SelectField label="Родительское оборудование" value={equipmentItem.parentEquipmentId ?? ''} options={parentOptions} onChange={(value) => patchEquipment({ parentEquipmentId: value || null })} />
         <SelectField label="Место размещения" value={equipmentItem.placementObjectId} options={objects.map((object) => ({ value: object.id, label: object.name }))} onChange={(value) => patchEquipment({ placementObjectId: value })} />
         <EditableField label="Количество" type="number" value={equipmentItem.quantity} onChange={(value) => patchEquipment({ quantity: Number(value) || 1 })} />
@@ -117,6 +122,7 @@ function EquipmentParameters({
         <div className="inline-title"><b>Параметры по виду оборудования</b><small>{equipmentType?.name ?? 'Вид не найден'}</small></div>
         {equipmentTypeParameters.length > 0 ? equipmentTypeParameters.map((parameter) => <EquipmentParameterInput key={parameter.id} parameter={parameter} value={getEquipmentParameterValue(equipmentItem, parameter)} onChange={(value) => updateEquipmentParameterValue(parameter, value)} />) : <EmptyState title="Параметров вида оборудования нет" description="Добавьте параметры в Дереве видов объектов или создайте новый вид оборудования." />}
       </div>
+      <ServiceInfo equipmentItem={equipmentItem} />
     </div>
   );
 }
@@ -127,23 +133,21 @@ function EquipmentPlacement({ equipmentItem, systems, objects, objectTypes, patc
 
   return (
     <div className="parameter-section reference-table-section">
-      <SectionTitle title="Размещение оборудования" description="Размещение выбирается через список объектов учета. Это не создает оборудование внутри объекта, а меняет ссылку placementObjectId." />
+      <SectionTitle title="Размещение оборудования" description="Выберите помещение или объект размещения. Список выбора появляется только по действию пользователя." />
       {!equipmentItem.placementObjectId ? <div className="inline-warning"><b>Не выбрано место размещения</b><p>Оборудование должно быть связано с объектом размещения.</p></div> : null}
       <div className="reference-fields-grid">
-        <ReadOnlyField label="systemId" value={equipmentItem.systemId || 'Не задано'} />
-        <ReadOnlyField label="placementObjectId" value={equipmentItem.placementObjectId || 'Не задано'} />
-        <ReadOnlyField label="Система" value={systemLabel(systems, equipmentItem.systemId)} />
-        <ReadOnlyField label="Объект размещения" value={object?.name ?? 'Не найден'} />
+        <ReadOnlyField label="Система" value={getEquipmentSystemLabel(equipmentItem, systems)} />
+        <ReadOnlyField label="Помещение или объект размещения" value={object?.name ?? 'Не найдено'} />
         <ReadOnlyField label="Вид объекта размещения" value={objectType?.name ?? 'Не найден'} />
         <ReadOnlyField label="Уровень объекта" value={detailInfo?.objectLevel ?? 'Не определен'} />
-        <ReadOnlyField label="Уровень детализации корня" value={detailInfo?.detailLevel ?? 'Не определен'} />
       </div>
       <RelationBlock
-        title="Выбор объекта размещения"
-        description="Single choice: выбранный объект становится placementObjectId оборудования."
+        title="Помещение или объект размещения"
+        description="Выберите одно место размещения. После выбора карточки помещений обновляются автоматически."
+        actionLabel={equipmentItem.placementObjectId ? 'Изменить помещение' : 'Прикрепить к помещению'}
+        singleChoice
         items={objects.map((candidate) => ({ id: candidate.id, label: `${candidate.name} · ${typeLabel(objectTypes, candidate.typeId)}`, checked: candidate.id === equipmentItem.placementObjectId }))}
         onToggle={(objectId) => patchEquipment({ placementObjectId: objectId })}
-        singleChoice
       />
     </div>
   );
@@ -169,28 +173,37 @@ function EquipmentNesting({
   onSelectEquipment: (equipmentId: string) => void;
 }) {
   const blockedParentIds = new Set([equipmentItem.id, ...buildEquipmentDescendantIds(equipment, equipmentItem.id)]);
-  const parentOptions = [{ value: '', label: 'Нет родительского оборудования' }, ...equipment.filter((item) => !blockedParentIds.has(item.id) && item.systemId === equipmentItem.systemId).map((item) => ({ value: item.id, label: item.name }))];
+  const parentCandidates = equipment.filter((item) => !blockedParentIds.has(item.id) && item.systemId === equipmentItem.systemId);
   const children = equipment.filter((item) => item.parentEquipmentId === equipmentItem.id);
   const parent = equipment.find((item) => item.id === equipmentItem.parentEquipmentId);
 
   return (
     <div className="parameter-section reference-table-section">
-      <SectionTitle title="Вложенность оборудования" description="Оборудование может быть вложенным. Нельзя выбрать родителем само оборудование или его потомка." />
+      <SectionTitle title="Вложенность оборудования" description="Оборудование может быть одиночным, комплексным или иметь составные части." />
       <div className="reference-fields-grid">
-        <ReadOnlyField label="Текущая система" value={systemLabel(systems, equipmentItem.systemId)} />
+        <ReadOnlyField label="Система" value={getEquipmentSystemLabel(equipmentItem, systems)} />
         <ReadOnlyField label="Родительское оборудование" value={parent?.name ?? 'Нет'} />
-        <SelectField label="Выбрать родителя" value={equipmentItem.parentEquipmentId ?? ''} options={parentOptions} onChange={(value) => patchEquipment({ parentEquipmentId: value || null })} />
       </div>
-      <button type="button" className="secondary-action" onClick={() => onAddChildEquipment(equipmentItem.id)}>Добавить дочернее оборудование</button>
-      {children.length === 0 ? <EmptyState title="Дочернего оборудования нет" description="Добавьте дочернее оборудование или оставьте элемент конечной единицей учета." /> : null}
+      <RelationBlock
+        title="Родительское оборудование"
+        description="Выбор родителя формирует дерево состава. Самого себя и потомков выбрать нельзя."
+        singleChoice
+        actionLabel={equipmentItem.parentEquipmentId ? 'Изменить родителя' : 'Выбрать родителя'}
+        emptyLabel="Родительское оборудование не выбрано"
+        items={parentCandidates.map((item) => ({ id: item.id, label: `${item.name} · ${objectLabel(objects, item.placementObjectId)}`, checked: item.id === equipmentItem.parentEquipmentId }))}
+        onToggle={(id) => patchEquipment({ parentEquipmentId: id })}
+        onOpen={onSelectEquipment}
+      />
+      <button type="button" className="secondary-action" onClick={() => onAddChildEquipment(equipmentItem.id)}>Добавить составную часть</button>
+      {children.length === 0 ? <EmptyState title="Составных частей нет" description="Добавьте дочернее оборудование или оставьте элемент одиночной единицей учета." /> : null}
       {children.map((child) => (
         <div className="tech-card-row" key={child.id}>
           <div className="inline-title"><b>{child.name}</b><button type="button" onClick={() => onSelectEquipment(child.id)}>Открыть карточку</button></div>
           <div className="reference-fields-grid">
-            <ReadOnlyField label="Вид" value={typeLabel(objectTypes, child.typeId)} />
-            <ReadOnlyField label="Размещение" value={objectLabel(objects, child.placementObjectId)} />
+            <ReadOnlyField label="Вид элемента" value={typeLabel(objectTypes, child.typeId)} />
+            <ReadOnlyField label="Место размещения" value={objectLabel(objects, child.placementObjectId)} />
             <ReadOnlyField label="Количество" value={child.quantity} />
-            <ReadOnlyField label="Единица" value={child.unit} />
+            <ReadOnlyField label="Единица измерения" value={child.unit} />
           </div>
         </div>
       ))}
@@ -219,6 +232,10 @@ function EquipmentTechCards({ equipmentItem, techCards, onSelectTechCard, onCrea
       ))}
     </div>
   );
+}
+
+function ServiceInfo({ equipmentItem }: { equipmentItem: EquipmentEntity }) {
+  return <div className="service-info"><b>Служебные сведения</b><span>Идентификатор оборудования: {equipmentItem.id}</span><span>Идентификатор объекта размещения: {equipmentItem.placementObjectId || 'не задан'}</span>{equipmentItem.systemId ? <span>Идентификатор системы: {equipmentItem.systemId}</span> : null}</div>;
 }
 
 function EquipmentParameterInput({ parameter, value, onChange }: { parameter: ParameterDefinition; value: ParameterDefaultValue; onChange: (value: ParameterDefaultValue) => void }) {
