@@ -84,17 +84,17 @@ function buildObjectTreeNodes(objects: InfrastructureObject[], systems: SystemEn
     nodes.push({ id: object.id, parentId: object.parentId ? roomsFolderId(object.parentId) : null, entityKind: 'object', title: object.name, subtitle: object.description || objectType?.shortName || objectType?.name || 'Вид не задан', summary: summaryParts.join(' · '), warning: object.status === 'retired' ? 'снят' : warningCount > 0 ? `⚠ ${warningCount}` : undefined, objectId: object.id, order: 100 + (objectIndex.get(object.id) ?? 0) });
     nodes.push({ id: systemsFolderId(object.id), parentId: object.id, entityKind: 'objectFolder', title: 'Системы', subtitle: 'Инженерная структура', summary: `сист. ${directSystems.length} · наслед. ${inheritedSystems.length}${standaloneEquipment.length > 0 ? ` · самост. ${standaloneEquipment.length}` : ''}`, objectId: object.id, virtualRole: 'systemsFolder', order: 10 });
     nodes.push({ id: roomsFolderId(object.id), parentId: object.id, entityKind: 'objectFolder', title: 'Помещения', subtitle: 'Вложенные объекты', summary: childObjects.length > 0 ? `пом. ${childObjects.length}` : 'нет помещений', objectId: object.id, virtualRole: 'roomsFolder', order: 20 });
-    buildSystemFolderNodes(nodes, object, systems, equipment, objectTypes, directSystems, inheritedSystems, standaloneEquipment);
+    buildSystemFolderNodes(nodes, object, objects, systems, equipment, objectTypes, directSystems, inheritedSystems, standaloneEquipment);
     if (childObjects.length === 0) nodes.push({ id: emptyNodeId('rooms', object.id), parentId: roomsFolderId(object.id), entityKind: 'objectFolder', title: 'нет помещений', subtitle: 'Папка не скрывается', summary: 'можно добавить', objectId: object.id, virtualRole: 'emptyState', readOnly: true, order: 10 });
   });
   return nodes;
 }
 
-function buildSystemFolderNodes(nodes: TreeNode[], object: InfrastructureObject, systems: SystemEntity[], equipment: EquipmentEntity[], objectTypes: ObjectType[], directSystems: SystemEntity[], inheritedSystems: SystemEntity[], standaloneEquipment: EquipmentEntity[]) {
+function buildSystemFolderNodes(nodes: TreeNode[], object: InfrastructureObject, objects: InfrastructureObject[], systems: SystemEntity[], equipment: EquipmentEntity[], objectTypes: ObjectType[], directSystems: SystemEntity[], inheritedSystems: SystemEntity[], standaloneEquipment: EquipmentEntity[]) {
   const directSystemIds = new Set(directSystems.map((system) => system.id));
   const directRoots = directSystems.filter((system) => !system.parentSystemId || !directSystemIds.has(system.parentSystemId));
   if (directSystems.length === 0 && inheritedSystems.length === 0) nodes.push({ id: emptyNodeId('systems', object.id), parentId: systemsFolderId(object.id), entityKind: 'objectFolder', title: 'нет систем', subtitle: 'Папка не скрывается', summary: 'можно добавить', objectId: object.id, virtualRole: 'emptyState', readOnly: true, order: 10 });
-  directRoots.forEach((system, index) => buildSystemNode(nodes, object.id, systems, equipment, objectTypes, system, systemsFolderId(object.id), 100 + index));
+  directRoots.forEach((system, index) => buildSystemNode(nodes, object.id, objects, systems, equipment, objectTypes, system, systemsFolderId(object.id), 100 + index));
   if (inheritedSystems.length > 0) nodes.push({ id: inheritedSummaryId(object.id), parentId: systemsFolderId(object.id), entityKind: 'objectFolder', title: `наследуется ${inheritedSystems.length} систем`, subtitle: 'Полный список в карточке', summary: `наслед. ${inheritedSystems.length}`, objectId: object.id, virtualRole: 'inheritedSystemsFolder', readOnly: true, order: 300 });
   if (standaloneEquipment.length > 0) {
     nodes.push({ id: standaloneFolderId(object.id), parentId: systemsFolderId(object.id), entityKind: 'objectFolder', title: 'Самостоятельное оборудование', subtitle: 'Без системы', summary: `обор. ${standaloneEquipment.length}`, objectId: object.id, virtualRole: 'standaloneEquipmentFolder', order: 700 });
@@ -102,16 +102,16 @@ function buildSystemFolderNodes(nodes: TreeNode[], object: InfrastructureObject,
   }
 }
 
-function buildSystemNode(nodes: TreeNode[], objectId: string, systems: SystemEntity[], equipment: EquipmentEntity[], objectTypes: ObjectType[], system: SystemEntity, parentId: string, order: number) {
+function buildSystemNode(nodes: TreeNode[], objectId: string, objects: InfrastructureObject[], systems: SystemEntity[], equipment: EquipmentEntity[], objectTypes: ObjectType[], system: SystemEntity, parentId: string, order: number) {
   const systemEquipment = getSystemEquipment(system, equipment);
   const warnings = getSystemWarnings(system, equipment);
   const systemType = objectTypes.find((type) => type.id === system.typeId);
   const nodeId = systemNodeId(objectId, system.id);
   const systemWarning = systemEquipment.length === 0 ? 'нет обор.' : warnings.length > 0 ? `⚠ ${warnings.length}` : undefined;
   nodes.push({ id: nodeId, parentId, entityKind: 'system', refId: system.id, title: system.name, subtitle: systemType?.shortName || systemType?.name || 'Система', summary: compactSystemSummary(system, equipment), warning: systemWarning, objectId, systemId: system.id, order });
-  systems.filter((child) => child.parentSystemId === system.id).forEach((child, index) => buildSystemNode(nodes, objectId, systems, equipment, objectTypes, child, nodeId, 100 + index));
+  systems.filter((child) => child.parentSystemId === system.id).forEach((child, index) => buildSystemNode(nodes, objectId, objects, systems, equipment, objectTypes, child, nodeId, 100 + index));
   const systemEquipmentIds = new Set(systemEquipment.map((item) => item.id));
-  systemEquipment.filter((item) => !item.parentEquipmentId || !systemEquipmentIds.has(item.parentEquipmentId)).forEach((item, index) => buildEquipmentNode(nodes, objectId, system.id, systemEquipment, objectTypes, [], item, nodeId, 500 + index));
+  systemEquipment.filter((item) => !item.parentEquipmentId || !systemEquipmentIds.has(item.parentEquipmentId)).forEach((item, index) => buildEquipmentNode(nodes, objectId, system.id, systemEquipment, objectTypes, objects, item, nodeId, 500 + index));
 }
 
 function buildEquipmentNode(nodes: TreeNode[], objectId: string, systemId: string, equipment: EquipmentEntity[], objectTypes: ObjectType[], objects: InfrastructureObject[], item: EquipmentEntity, parentId: string, order: number) {
