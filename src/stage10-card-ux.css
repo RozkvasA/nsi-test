@@ -1,0 +1,169 @@
+.parameter-card-wide {
+  padding: 0;
+}
+
+.parameter-sections-stack {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.parameter-sections-stack .parameter-section {
+  border: 1px solid #dbe5ed;
+  border-radius: 12px;
+  background: #ffffff;
+  padding: 12px;
+}
+
+.relation-table-block {
+  display: grid;
+  gap: 10px;
+}
+
+.relation-selected-table {
+  display: grid;
+  gap: 0;
+  border: 1px solid #e1e8ef;
+  border-radius: 10px;
+  background: #fbfdff;
+  padding: 6px;
+}
+
+.relation-selected-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border-bottom: 1px solid #edf2f6;
+  padding: 7px 8px;
+}
+
+.relation-selected-row:last-child {
+  border-bottom: 0;
+}
+
+.relation-selected-row span {
+  overflow: hidden;
+  color: #142941;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.relation-empty-row {
+  color: #71879b;
+  font-size: 13px;
+  padding: 8px;
+}
+
+.relation-picker {
+  display: grid;
+  gap: 8px;
+}
+
+.relation-picker-list {
+  display: grid;
+  max-height: 220px;
+  overflow: auto;
+  border: 1px solid #dbe5ed;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 6px;
+}
+
+.relation-pick-row,
+.relation-selected-row button {
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #15304d;
+  font-weight: 800;
+  padding: 8px;
+  text-align: left;
+}
+
+.relation-selected-row button {
+  border-color: #ccd9e3;
+  background: #f8fbfd;
+}
+
+.relation-pick-row:hover,
+.relation-pick-row.active,
+.relation-selected-row button:hover {
+  border-color: #b7def7;
+  background: #eef8ff;
+}
+
+.relation-add-button {
+  justify-self: start;
+}
+
+.engineering-tree {
+  display: grid;
+  gap: 6px;
+}
+
+.engineering-tree-node {
+  display: grid;
+  gap: 4px;
+}
+
+.engineering-tree-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #e1e8ef;
+  border-radius: 10px;
+  background: #ffffff;
+  padding: 8px;
+}
+
+.engineering-tree-row b,
+.engineering-tree-row small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.engineering-tree-row small {
+  color: #71879b;
+  font-size: 12px;
+}
+
+.service-info {
+  display: grid;
+  gap: 4px;
+  border: 1px dashed #cbd8e3;
+  border-radius: 10px;
+  background: #fbfdff;
+  color: #4a6074;
+  font-size: 12px;
+  padding: 10px;
+}
+
+.service-info b {
+  color: #15304d;
+  font-size: 13px;
+}
+
+.bulk-panel {
+  display: grid;
+  gap: 8px;
+  border: 1px dashed #cbd8e3;
+  border-radius: 10px;
+  background: #fbfdff;
+  padding: 10px;
+}
+
+.bulk-panel b {
+  color: #15304d;
+}
+
+@media (max-width: 1100px) {
+  .relation-selected-row,
+  .engineering-tree-row {
+    grid-template-columns: 1fr;
+  }
+}
