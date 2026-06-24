@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import type { EquipmentEntity, InfrastructureObject, ObjectType, SystemEntity, TechCard } from '../../types/nsi';
-import type { OverviewEquipmentItem, OverviewRoomItem, OverviewSystemItem, OverviewTechCardItem } from '../../utils/nsiOverview';
+import type { OverviewRoomItem, OverviewSystemItem } from '../../utils/nsiOverview';
 import { buildObjectOverviewCards } from '../../utils/nsiOverview';
 
 interface ObjectOverviewProps {
@@ -96,8 +96,6 @@ export function ObjectOverview({ objects, objectTypes, systems, equipment, techC
                                       {detailArea ? <Badge label={detailArea} /> : null}
                                       <Badge label={`${detailNode.roomsCount} помещ.`} />
                                       <Badge label={`${detailNode.systemsCount} сист.`} />
-                                      <Badge label={`${detailNode.equipmentCount} обор.`} />
-                                      <Badge label={`${detailNode.techCardsCount} ТК`} />
                                       {detailNode.warnings.length > 0 ? <Badge label={`${detailNode.warnings.length} пред.`} tone="warning" /> : null}
                                     </div>
                                   </div>
@@ -106,8 +104,6 @@ export function ObjectOverview({ objects, objectTypes, systems, equipment, techC
                                     <div className="overview-detail-row">
                                       <CompactBlock title="Помещения" emptyText="нет помещений" items={detailNode.rooms} renderItem={(room) => <RoomLine room={room} />} />
                                       <CompactBlock title="Системы" emptyText="нет систем" items={detailNode.systems} renderItem={(system) => <SystemLine system={system} />} />
-                                      {detailNode.equipment.length > 0 ? <CompactBlock title="Оборудование" emptyText="нет оборудования" items={detailNode.equipment} renderItem={(item) => <EquipmentLine item={item} />} /> : null}
-                                      {detailNode.techCards.length > 0 ? <CompactBlock title="Техкарты" emptyText="нет техкарт" items={detailNode.techCards} renderItem={(card) => <TechCardLine card={card} />} /> : null}
                                     </div>
                                   ) : null}
                                 </div>
@@ -150,12 +146,4 @@ function RoomLine({ room }: { room: OverviewRoomItem }) {
 
 function SystemLine({ system }: { system: OverviewSystemItem }) {
   return <><span>{system.name}</span><small>{system.scope} · {system.equipmentCount} обор.</small></>;
-}
-
-function EquipmentLine({ item }: { item: OverviewEquipmentItem }) {
-  return <><span>{item.name}</span><small>{item.typeName} · {item.quantity} {item.unit} · {item.placementName}</small></>;
-}
-
-function TechCardLine({ card }: { card: OverviewTechCardItem }) {
-  return <><span>{card.name}</span><small>{card.type} · {card.targetType}</small></>;
 }
