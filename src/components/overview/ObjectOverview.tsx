@@ -15,14 +15,16 @@ interface ObjectOverviewProps {
   onOpenInTree: (objectId: string) => void;
 }
 
+const cleanName = (name: string) => name.replace(/\s\/\s.+$/, '');
 const formatArea = (area: number | null) => (area === null ? '' : `${area.toLocaleString('ru-RU')} м²`);
-const limitItems = <T,>(items: T[], limit = 5) => ({ visible: items.slice(0, limit), rest: Math.max(0, items.length - limit) });
+const limitItems = <T,>(items: T[], expanded: boolean, limit = 5) => ({ visible: expanded ? items : items.slice(0, limit), rest: Math.max(0, items.length - limit) });
 
 export function ObjectOverview({ objects, objectTypes, systems, equipment, techCards, onAddObject, onCreateFromTemplate, onOpenInTree }: ObjectOverviewProps) {
   const cards = buildObjectOverviewCards(objects, objectTypes, systems, equipment, techCards);
   const [expandedOverviewRootIds, setExpandedOverviewRootIds] = useState<Set<string>>(new Set());
   const [expandedOverviewNodeIds, setExpandedOverviewNodeIds] = useState<Set<string>>(new Set());
   const [expandedOverviewDetailIds, setExpandedOverviewDetailIds] = useState<Set<string>>(new Set());
+  const [expandedOverviewListKeys, setExpandedOverviewListKeys] = useState<Set<string>>(new Set());
 
   const toggleRoot = (rootId: string) => {
     setExpandedOverviewRootIds((prev) => toggleSetValue(prev, rootId));
@@ -34,6 +36,10 @@ export function ObjectOverview({ objects, objectTypes, systems, equipment, techC
 
   const toggleDetail = (detailId: string) => {
     setExpandedOverviewDetailIds((prev) => toggleSetValue(prev, detailId));
+  };
+
+  const toggleList = (listKey: string) => {
+    setExpandedOverviewListKeys((prev) => toggleSetValue(prev, listKey));
   };
 
   return (
@@ -56,7 +62,7 @@ export function ObjectOverview({ objects, objectTypes, systems, equipment, techC
             <article className={isExpanded ? 'overview-tree-card expanded' : 'overview-tree-card'} key={card.id}>
               <div className="overview-root-row">
                 <button type="button" className="overview-expand-button" onClick={() => toggleRoot(card.id)} aria-label={isExpanded ? 'Свернуть объект' : 'Раскрыть объект'}>{isExpanded ? '▾' : '▸'}</button>
-                <div className="overview-root-main"><b>{card.name}</b><span>{card.typeName}</span></div>
+                <div className="overview-root-main"><b>{cleanName(card.name)}</b><span>{card.typeName}</span></div>
                 <div className="overview-badges">
                   <Badge label={`L${card.detailLevel}`} />
                   {area ? <Badge label={area} /> : null}
@@ -78,7 +84,7 @@ export function ObjectOverview({ objects, objectTypes, systems, equipment, techC
                       <div className={isNodeExpanded ? 'overview-level-block expanded' : 'overview-level-block'} key={node.id}>
                         <div className="overview-level-row">
                           <button type="button" className="overview-expand-button" onClick={() => toggleNode(node.id)} aria-label={isNodeExpanded ? 'Свернуть уровень' : 'Раскрыть уровень'}>{isNodeExpanded ? '▾' : '▸'}</button>
-                          <div className="overview-detail-main"><b>{node.name}</b><span>{node.typeName}</span></div>
+                          <div className="overview-detail-main"><b>{cleanName(node.name)}</b><span>{node.typeName}</span></div>
                           <div className="overview-badges"><Badge label={`${node.detailChildren.length} узл.`} /></div>
                         </div>
 
@@ -87,11 +93,13 @@ export function ObjectOverview({ objects, objectTypes, systems, equipment, techC
                             {node.detailChildren.map((detailNode) => {
                               const isDetailExpanded = expandedOverviewDetailIds.has(detailNode.id);
                               const detailArea = formatArea(detailNode.area);
+                              const roomListKey = `${detailNode.id}:rooms`;
+                              const systemListKey = `${detailNode.id}:systems`;
                               return (
                                 <div className={isDetailExpanded ? 'overview-detail-node expanded' : 'overview-detail-node'} key={detailNode.id}>
                                   <div className="overview-detail-summary-row">
                                     <button type="button" className="overview-expand-button" onClick={() => toggleDetail(detailNode.id)} aria-label={isDetailExpanded ? 'Свернуть объект' : 'Раскрыть объект'}>{isDetailExpanded ? '▾' : '▸'}</button>
-                                    <div className="overview-detail-main"><b>{detailNode.name}</b><span>{detailNode.typeName}</span></div>
+                                    <div className="overview-detail-main"><b>{cleanName(detailNode.name)}</b><span>{detailNode.typeName}</span></div>
                                     <div className="overview-badges">
                                       {detailArea ? <Badge label={detailArea} /> : null}
                                       <Badge label={`${detailNode.roomsCount} помещ.`} />
@@ -102,8 +110,8 @@ export function ObjectOverview({ objects, objectTypes, systems, equipment, techC
 
                                   {isDetailExpanded ? (
                                     <div className="overview-detail-row">
-                                      <CompactBlock title="Помещения" emptyText="нет помещений" items={detailNode.rooms} renderItem={(room) => <RoomLine room={room} />} />
-                                      <CompactBlock title="Системы" emptyText="нет систем" items={detailNode.systems} renderItem={(system) => <SystemLine system={system} />} />
+                                      <CompactBlock title="Помещения" emptyText="нет помещений" items={detailNode.rooms} expanded={expandedOverviewListKeys.has(roomListKey)} onToggle={() => toggleList(roomListKey)} renderItem={(room) => <RoomLine room={room} />} />
+                                      <CompactBlock title="Системы" emptyText="нет систем" items={detailNode.systems} expanded={expandedOverviewListKeys.has(systemListKey)} onToggle={() => toggleList(systemListKey)} renderItem={(system) => <SystemLine system={system} />} />
                                     </div>
                                   ) : null}
                                 </div>
@@ -134,14 +142,21 @@ function Badge({ label, tone }: { label: string; tone?: 'warning' }) {
   return <span className={tone === 'warning' ? 'overview-badge warning' : 'overview-badge'}>{label}</span>;
 }
 
-function CompactBlock<T>({ title, emptyText, items, renderItem }: { title: string; emptyText: string; items: T[]; renderItem: (item: T) => ReactNode }) {
-  const { visible, rest } = limitItems(items, 5);
-  return <div className="overview-compact-block"><div className="overview-compact-block-title"><b>{title}</b><span>{items.length}</span></div>{visible.length === 0 ? <small>{emptyText}</small> : null}{visible.map((item, index) => <div className="overview-compact-line" key={index}>{renderItem(item)}</div>)}{rest > 0 ? <small>+{rest} еще</small> : null}</div>;
+function CompactBlock<T>({ title, emptyText, items, expanded, onToggle, renderItem }: { title: string; emptyText: string; items: T[]; expanded: boolean; onToggle: () => void; renderItem: (item: T) => ReactNode }) {
+  const { visible, rest } = limitItems(items, expanded, 5);
+  return (
+    <div className="overview-compact-block">
+      <div className="overview-compact-block-title"><b>{title}</b><span>{items.length}</span></div>
+      {visible.length === 0 ? <small>{emptyText}</small> : null}
+      {visible.map((item, index) => <div className="overview-compact-line" key={index}>{renderItem(item)}</div>)}
+      {items.length > 5 ? <button type="button" className="overview-list-toggle" onClick={onToggle}>{expanded ? 'Свернуть' : `+${rest} еще`}</button> : null}
+    </div>
+  );
 }
 
 function RoomLine({ room }: { room: OverviewRoomItem }) {
   const area = formatArea(room.area);
-  return <><span>{room.name}</span><small>{room.typeName}{area ? ` · ${area}` : ''}</small></>;
+  return <><span>{cleanName(room.name)}</span><small>{room.typeName}{area ? ` · ${area}` : ''}</small></>;
 }
 
 function SystemLine({ system }: { system: OverviewSystemItem }) {
