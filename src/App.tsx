@@ -49,9 +49,9 @@ import { createSystemEntity } from './utils/nsiSystems';
 const tabs = ['Параметры', 'Документы', 'Заметки', 'Карта', 'Обслуживание'];
 
 const parameterGroups: ParameterGroupView[] = [
-  { id: 'main', title: 'Основные', hint: 'Идентификатор, наименование, вид, родитель, площадь и количество' },
-  { id: 'relations', title: 'Связи', hint: 'Двусторонние связи через чекбоксы и массовый выбор' },
-  { id: 'additional', title: 'Прочие', hint: 'Параметры по виду объекта и служебные признаки' },
+  { id: 'main', title: 'Основные', hint: 'Основные данные' },
+  { id: 'relations', title: 'Связи', hint: 'Связанные элементы' },
+  { id: 'additional', title: 'Прочие', hint: 'Параметры по виду' },
 ];
 
 const nextKindBySection: Record<NsiSectionId, EntityKind> = { overview: 'object', objects: 'object', objectTypes: 'objectType', techCards: 'techCard', dictionaries: 'dictionary' };
@@ -129,7 +129,6 @@ function App() {
   };
 
   const toggleExpanded = (nodeId: string) => setExpandedIds((prev) => { const next = new Set(prev); next.has(nodeId) ? next.delete(nodeId) : next.add(nodeId); return next; });
-
   const handleSelectNode = (node: TreeNode) => { setSelectedRef({ kind: node.entityKind, id: node.id }); if (node.entityKind === 'object') setSelectedContextObjectId(node.id); setPendingObjectDraft(null); setActiveTab('Параметры'); setActiveGroupId('main'); };
   const handleSelectSystem = (systemId: string, contextObjectId?: string | null) => { setSelectedRef({ kind: 'system', id: systemId }); if (contextObjectId !== undefined) setSelectedContextObjectId(contextObjectId); setPendingObjectDraft(null); setDetailsNotice(null); setActiveTab('Параметры'); setActiveGroupId('main'); };
   const handleSelectEquipment = (equipmentId: string) => { const item = equipment.find((equipmentItem) => equipmentItem.id === equipmentId); setSelectedRef({ kind: 'equipment', id: equipmentId }); if (item?.placementObjectId) setSelectedContextObjectId(item.placementObjectId); setPendingObjectDraft(null); setDetailsNotice(null); setActiveTab('Параметры'); setActiveGroupId('main'); };
@@ -186,7 +185,20 @@ function App() {
     setSelectedRef({ kind: 'object', id }); setSelectedContextObjectId(id); if (pendingObjectDraft.parentObjectId) setExpandedIds((prev) => new Set(prev).add(pendingObjectDraft.parentObjectId as string)); resetRightPanel();
   };
 
-  const ensureSystemForEquipment = (createdAt: number, placementObjectId: string) => { const selectedSystemId = selectedRef.kind === 'system' ? selectedRef.id : null; const existingSystemId = selectedSystemId ?? systems[0]?.id; if (existingSystemId) return existingSystemId; const fallbackSystemId = `sys-auto-${createdAt}`; setSystems([{ id: fallbackSystemId, name: 'Система для оборудования', typeId: objectTypes.find((type) => type.code === 'SYSTEM')?.id ?? 'type-system', parentSystemId: null, scopeType: 'objectNode', scopeObjectIds: [placementObjectId], linkedRoomIds: [], equipmentIds: [], quantity: 1, unit: 'система', parameters: { serviceZone: 'Создано автоматически для оборудования', criticality: null } }]); return fallbackSystemId; };
+  const syncEquipmentSystemLinks = (equipmentId: string, oldSystemId: string, nextSystemId: string) => {
+    if (oldSystemId === nextSystemId) return;
+    setSystems((prev) => prev.map((system) => {
+      if (system.id === oldSystemId) return { ...system, equipmentIds: system.equipmentIds.filter((id) => id !== equipmentId) };
+      if (system.id === nextSystemId) return { ...system, equipmentIds: Array.from(new Set([...system.equipmentIds, equipmentId])) };
+      return system;
+    }));
+  };
+
+  const updateEquipment = (id: string, patch: Partial<EquipmentEntity>) => {
+    const current = equipment.find((item) => item.id === id);
+    if (current && patch.systemId !== undefined) syncEquipmentSystemLinks(id, current.systemId, patch.systemId);
+    setEquipment((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)));
+  };
 
   const handleCreate = (kind: CreateEntityKind, parentObjectId?: string | null) => {
     if (kind === 'rootObject' || kind === 'childObject' || kind === 'room') { startObjectDraft(kind, parentObjectId); return; }
@@ -200,16 +212,14 @@ function App() {
     }
 
     const placementObjectId = parentId ?? objects[0]?.id ?? '';
-    const systemId = ensureSystemForEquipment(createdAt, placementObjectId);
-    const equipmentItem = createEquipmentEntity({ createdAt, systemId, typeId: objectTypes.find((type) => type.code === 'EQUIPMENT')?.id ?? 'type-equipment', placementObjectId });
+    const equipmentItem = createEquipmentEntity({ createdAt, systemId: '', typeId: objectTypes.find((type) => type.code === 'EQUIPMENT')?.id ?? 'type-equipment', placementObjectId });
     setEquipment((prev) => [...prev, equipmentItem]);
-    setSystems((prev) => prev.map((system) => (system.id === systemId ? { ...system, equipmentIds: Array.from(new Set([...system.equipmentIds, equipmentItem.id])) } : system)));
-    setSelectedRef({ kind: 'equipment', id: equipmentItem.id }); setSelectedContextObjectId(placementObjectId); setActiveTab('Параметры'); setActiveGroupId('main'); setDetailsNotice({ type: 'editHint', title: 'Оборудование добавлено', message: 'Оборудование создано как отдельная сущность внутри системы и открыто в карточке.' });
+    setSelectedRef({ kind: 'equipment', id: equipmentItem.id }); setSelectedContextObjectId(placementObjectId); setActiveTab('Параметры'); setActiveGroupId('main'); setDetailsNotice({ type: 'editHint', title: 'Оборудование добавлено', message: 'Оборудование создано как самостоятельный элемент. При необходимости привяжите его к системе в карточке.' });
   };
 
   const addEquipmentToSystem = (systemId: string) => { const createdAt = Date.now(); const placementObjectId = selectedContextObjectId ?? objects[0]?.id ?? ''; const equipmentItem = createEquipmentEntity({ createdAt, systemId, typeId: objectTypes.find((type) => type.code === 'EQUIPMENT')?.id ?? 'type-equipment', placementObjectId }); setEquipment((prev) => [...prev, equipmentItem]); setSystems((prev) => prev.map((system) => (system.id === systemId ? { ...system, equipmentIds: Array.from(new Set([...system.equipmentIds, equipmentItem.id])) } : system))); setSelectedRef({ kind: 'equipment', id: equipmentItem.id }); setSelectedContextObjectId(placementObjectId); setActiveTab('Параметры'); setActiveGroupId('main'); };
-  const addChildEquipment = (parentEquipmentId: string) => { const parent = equipment.find((item) => item.id === parentEquipmentId); if (!parent) return; const createdAt = Date.now(); const child = createEquipmentEntity({ createdAt, systemId: parent.systemId, typeId: parent.typeId || objectTypes.find((type) => type.code === 'EQUIPMENT')?.id || 'type-equipment', placementObjectId: parent.placementObjectId, parentEquipmentId, name: 'Дочернее оборудование' }); setEquipment((prev) => [...prev, child]); setSystems((prev) => prev.map((system) => (system.id === parent.systemId ? { ...system, equipmentIds: Array.from(new Set([...system.equipmentIds, child.id])) } : system))); setSelectedRef({ kind: 'equipment', id: child.id }); setSelectedContextObjectId(child.placementObjectId); setActiveTab('Параметры'); };
-  const detachEquipmentFromSystem = (systemId: string, equipmentId: string) => { setSelectedRef({ kind: 'equipment', id: equipmentId }); setDetailsNotice({ type: 'moveBlocked', title: 'Оборудование не отвязано', message: 'Оборудование не может существовать без системы. Откройте карточку оборудования и выберите другую систему.' }); setSystems((prev) => prev.map((system) => (system.id === systemId ? { ...system, equipmentIds: system.equipmentIds.filter((id) => id !== equipmentId) } : system))); };
+  const addChildEquipment = (parentEquipmentId: string) => { const parent = equipment.find((item) => item.id === parentEquipmentId); if (!parent) return; const createdAt = Date.now(); const child = createEquipmentEntity({ createdAt, systemId: parent.systemId, typeId: parent.typeId || objectTypes.find((type) => type.code === 'EQUIPMENT')?.id || 'type-equipment', placementObjectId: parent.placementObjectId, parentEquipmentId, name: 'Составная часть оборудования' }); setEquipment((prev) => [...prev, child]); if (parent.systemId) setSystems((prev) => prev.map((system) => (system.id === parent.systemId ? { ...system, equipmentIds: Array.from(new Set([...system.equipmentIds, child.id])) } : system))); setSelectedRef({ kind: 'equipment', id: child.id }); setSelectedContextObjectId(child.placementObjectId); setActiveTab('Параметры'); };
+  const detachEquipmentFromSystem = (systemId: string, equipmentId: string) => { setEquipment((prev) => prev.map((item) => (item.id === equipmentId ? { ...item, systemId: '', parentEquipmentId: null } : item))); setSystems((prev) => prev.map((system) => (system.id === systemId ? { ...system, equipmentIds: system.equipmentIds.filter((id) => id !== equipmentId) } : system))); setSelectedRef({ kind: 'equipment', id: equipmentId }); setDetailsNotice({ type: 'editHint', title: 'Оборудование стало самостоятельным', message: 'Оборудование больше не входит в систему, но место размещения сохранено.' }); };
   const createTechCardForEquipment = (equipmentId: string) => { const item = equipment.find((equipmentItem) => equipmentItem.id === equipmentId); if (!item) return; const createdAt = Date.now(); const card: TechCard = { id: `tc-eq-${createdAt}`, name: `Новая техкарта для ${item.name}`, type: '', targetType: 'equipment', targetId: item.id, targetObjectTypeId: item.typeId, workTypeId: '', inputDate: '', outputDate: '', periodicity: '', minExecutionInterval: '', minDurationManHours: null, operations: [], personnel: [], materials: [], ppe: [], isActive: false, isComplex: false }; setTechCards((prev) => [...prev, card]); setSelectedRef({ kind: 'techCard', id: card.id }); setActiveTab('Параметры'); setDetailsNotice({ type: 'editHint', title: 'Техкарта создана', message: 'Создан черновик техкарты для выбранного оборудования. Заполните обязательные поля перед вводом в работу.' }); };
   const linkSystemToContextObject = (systemId: string) => { const contextObject = selectedContextObjectId ? objects.find((object) => object.id === selectedContextObjectId) : null; if (!contextObject) return; setSystems((prev) => prev.map((system) => { if (system.id !== systemId) return system; if (isRoomType(contextObject.typeId, objectTypes)) return { ...system, scopeType: 'singleRoom', linkedRoomIds: Array.from(new Set([...system.linkedRoomIds, contextObject.id])) }; return { ...system, scopeType: 'objectNode', scopeObjectIds: Array.from(new Set([...system.scopeObjectIds, contextObject.id])) }; })); };
   const linkSystemToRoomsInContext = (systemId: string) => { if (!selectedContextObjectId) return; const ids = [selectedContextObjectId, ...buildDescendantIds(objects, selectedContextObjectId)]; const roomIds = objects.filter((object) => ids.includes(object.id) && isRoomType(object.typeId, objectTypes)).map((object) => object.id); setSystems((prev) => prev.map((system) => (system.id === systemId ? { ...system, scopeType: 'multipleRooms', linkedRoomIds: Array.from(new Set([...system.linkedRoomIds, ...roomIds])) } : system))); };
@@ -279,7 +289,7 @@ function App() {
       onUpdateObject={(id, patch) => setObjects((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)))}
       onUpdateObjectType={(id, patch) => setObjectTypes((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)))}
       onUpdateSystem={(id, patch) => setSystems((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)))}
-      onUpdateEquipment={(id, patch) => setEquipment((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)))}
+      onUpdateEquipment={updateEquipment}
       onCreateSystemType={createSystemTypeForSystem}
       onCreateEquipmentType={createEquipmentTypeForEquipment}
       onAddEquipmentToSystem={addEquipmentToSystem}
