@@ -1,6 +1,6 @@
 export type NsiSectionId = 'overview' | 'objects' | 'objectTypes' | 'techCards' | 'dictionaries';
 
-export type EntityKind = 'object' | 'objectType' | 'system' | 'equipment' | 'techCard' | 'dictionary';
+export type EntityKind = 'object' | 'objectType' | 'system' | 'equipment' | 'techCard' | 'dictionary' | 'objectFolder';
 
 export type ObjectStatus = 'active' | 'retired';
 
@@ -17,6 +17,8 @@ export type ParameterDataType = 'string' | 'number' | 'boolean' | 'date' | 'dict
 export type ParameterDefaultValue = string | number | boolean | null;
 
 export type RootObjectCreationMode = 'empty' | 'template';
+
+export type ObjectTreeVirtualRole = 'systemsFolder' | 'roomsFolder' | 'inheritedSystemsFolder' | 'standaloneEquipmentFolder' | 'emptyState';
 
 export interface ParameterDefinition {
   id: string;
@@ -259,4 +261,10 @@ export interface TreeNode {
   subtitle: string;
   summary: string;
   warning?: string;
+  refId?: string;
+  objectId?: string;
+  systemId?: string;
+  virtualRole?: ObjectTreeVirtualRole;
+  readOnly?: boolean;
+  order?: number;
 }
