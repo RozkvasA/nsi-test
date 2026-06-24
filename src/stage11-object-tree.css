@@ -1,0 +1,140 @@
+.work-area:not(.overview-work-area) {
+  grid-template-columns: minmax(300px, 36%) minmax(0, 1fr);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.tree-panel,
+.details-panel {
+  min-width: 0;
+}
+
+.tree-list {
+  overflow-x: hidden;
+}
+
+.tree-row {
+  min-height: 34px;
+  gap: 6px;
+  padding-top: 5px;
+  padding-bottom: 5px;
+}
+
+.tree-main {
+  min-width: 0;
+}
+
+.tree-main strong,
+.tree-main span,
+.tree-summary {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tree-main strong {
+  font-size: 13px;
+  line-height: 1.15;
+}
+
+.tree-main span,
+.tree-summary {
+  font-size: 11px;
+  line-height: 1.15;
+}
+
+.tree-summary {
+  display: flex;
+  justify-content: flex-end;
+  min-width: 84px;
+  max-width: 190px;
+  color: #52697d;
+  font-weight: 700;
+}
+
+.expand-button,
+.row-menu {
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+}
+
+.virtual-folder-row {
+  background: #f7fbff;
+  border-color: #d7e9f7;
+}
+
+.virtual-folder-row .tree-main strong {
+  color: #0f4f78;
+}
+
+.readonly-row {
+  background: #fbfdff;
+  color: #60788d;
+}
+
+.readonly-row:not(.empty-tree-row):not(.virtual-folder-row) .tree-main strong::after {
+  content: ' · наслед.';
+  color: #7b8fa1;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.empty-tree-row {
+  opacity: 0.78;
+}
+
+.empty-tree-row .tree-main strong {
+  color: #71879b;
+  font-weight: 800;
+}
+
+.empty-tree-row .tree-summary {
+  color: #8a9baa;
+}
+
+.tree-row.readonly-row .row-menu,
+.tree-row.empty-tree-row .row-menu {
+  opacity: 0.45;
+}
+
+.tree-row.virtual-folder-row .tree-summary {
+  font-weight: 800;
+}
+
+@media (max-width: 1280px) {
+  .work-area:not(.overview-work-area) {
+    grid-template-columns: minmax(280px, 34%) minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .tree-summary {
+    max-width: 132px;
+    min-width: 72px;
+  }
+
+  .tree-main span {
+    max-width: 150px;
+  }
+}
+
+@media (max-width: 980px) {
+  .work-area:not(.overview-work-area) {
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+    overflow: auto;
+  }
+
+  .tree-panel {
+    min-height: 360px;
+    max-height: 48vh;
+  }
+
+  .details-panel {
+    min-height: 520px;
+  }
+
+  .tree-row {
+    grid-template-columns: auto minmax(0, 1fr) minmax(54px, auto) auto auto;
+  }
+}
