@@ -22,13 +22,27 @@ export function createEquipmentEntity(args: {
     placementObjectId: args.placementObjectId,
     quantity: 1,
     unit: 'шт.',
-    parameters: { manufacturer: null, inventoryNumber: null },
+    parameters: { manufacturer: null, inventoryNumber: null, equipmentLevel: args.parentEquipmentId ? 'unit' : 'unit' },
   };
 }
 
 export function buildEquipmentDescendantIds(equipment: EquipmentEntity[], rootId: string): string[] {
   const children = equipment.filter((item) => item.parentEquipmentId === rootId);
   return children.flatMap((child) => [child.id, ...buildEquipmentDescendantIds(equipment, child.id)]);
+}
+
+export function getEquipmentChildren(equipment: EquipmentEntity[], equipmentId: string): EquipmentEntity[] {
+  return equipment.filter((item) => item.parentEquipmentId === equipmentId);
+}
+
+export function isAggregateEquipment(equipmentItem: EquipmentEntity, equipment: EquipmentEntity[]): boolean {
+  const level = equipmentItem.parameters.equipmentLevel;
+  return level === 'group' || level === 'model' || level === 'aggregate' || getEquipmentChildren(equipment, equipmentItem.id).length > 0 || equipmentItem.quantity > 1;
+}
+
+export function getEquipmentDisplayQuantity(equipmentItem: EquipmentEntity, equipment: EquipmentEntity[]): number {
+  const children = getEquipmentChildren(equipment, equipmentItem.id);
+  return children.length > 0 ? children.length : equipmentItem.quantity || 1;
 }
 
 export function getEquipmentTypeParameters(objectType: ObjectType | undefined): ParameterDefinition[] {
@@ -92,12 +106,14 @@ export function getEquipmentSystemLabel(equipmentItem: EquipmentEntity, systems:
   return systems.find((system) => system.id === equipmentItem.systemId)?.name ?? 'Система не найдена';
 }
 
-export function formatEquipmentSummary(equipmentItem: EquipmentEntity, equipment: EquipmentEntity[], systems: SystemEntity[]): string {
+export function formatEquipmentSummary(equipmentItem: EquipmentEntity, equipment: EquipmentEntity[], systems: SystemEntity[], objects: InfrastructureObject[] = []): string {
   const warnings = getEquipmentWarnings(equipmentItem, equipment, systems);
+  const placement = objects.find((object) => object.id === equipmentItem.placementObjectId)?.name ?? equipmentItem.placementObjectId;
+  const aggregate = isAggregateEquipment(equipmentItem, equipment);
   return [
-    equipmentItem.quantity ? `${equipmentItem.quantity} ${equipmentItem.unit}` : null,
-    getEquipmentSystemLabel(equipmentItem, systems),
-    equipmentItem.placementObjectId ? `размещение: ${equipmentItem.placementObjectId}` : 'без размещения',
+    aggregate ? `ед. ${getEquipmentDisplayQuantity(equipmentItem, equipment)}` : null,
+    !aggregate && placement ? placement : null,
+    equipmentItem.systemId ? getEquipmentSystemLabel(equipmentItem, systems) : 'самост.',
     warnings.length > 0 ? `${warnings.length} предупрежд.` : null,
   ].filter(Boolean).join(' · ');
 }

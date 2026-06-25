@@ -13,7 +13,8 @@ import type {
   TreeNode,
 } from '../types/nsi';
 import { collectRequiredParameterWarnings } from './nsiObjectParameters';
-import { formatSystemSummary, getSystemEquipment, getSystemWarnings } from './nsiSystems';
+import { getEquipmentDisplayQuantity, getEquipmentChildren, getEquipmentSystemLabel, getEquipmentWarnings, isAggregateEquipment } from './nsiEquipment';
+import { getSystemEquipment, getSystemWarnings, systemScopeLabels } from './nsiSystems';
 import { formatTechCardSummary, getTechCardWarnings } from './nsiTechCards';
 
 export const formatArea = (area: number | null) => (area === null ? 'площ. нет' : `${area.toLocaleString('ru-RU')} м²`);
@@ -25,7 +26,8 @@ const systemsFolderId = (objectId: string) => `folder:systems:${objectId}`;
 const roomsFolderId = (objectId: string) => `folder:rooms:${objectId}`;
 const standaloneFolderId = (objectId: string) => `folder:standalone-equipment:${objectId}`;
 const emptyNodeId = (kind: string, objectId: string) => `empty:${kind}:${objectId}`;
-const systemNodeId = (objectId: string, systemId: string, inherited = false) => `${inherited ? 'inherited-system' : 'system'}:${objectId}:${systemId}`;
+const inheritedSummaryId = (objectId: string) => `summary:inherited-systems:${objectId}`;
+const systemNodeId = (objectId: string, systemId: string) => `system:${objectId}:${systemId}`;
 const equipmentNodeId = (objectId: string, systemId: string, equipmentId: string) => `equipment:${objectId}:${systemId || 'standalone'}:${equipmentId}`;
 
 function getAncestorIds(objects: InfrastructureObject[], objectId: string): string[] {
@@ -60,6 +62,11 @@ function getInheritedSystemsForObject(objects: InfrastructureObject[], systems: 
   });
 }
 
+function compactSystemSummary(system: SystemEntity, equipment: EquipmentEntity[]) {
+  const systemEquipment = getSystemEquipment(system, equipment);
+  return `${systemScopeLabels[system.scopeType]} · обор. ${systemEquipment.length}`;
+}
+
 function buildObjectTreeNodes(objects: InfrastructureObject[], systems: SystemEntity[], equipment: EquipmentEntity[], techCards: TechCard[], objectTypes: ObjectType[]) {
   const nodes: TreeNode[] = [];
   const objectIndex = new Map(objects.map((object, index) => [object.id, index]));
@@ -70,50 +77,51 @@ function buildObjectTreeNodes(objects: InfrastructureObject[], systems: SystemEn
     const directSystems = getDirectSystemsForObject(systems, object);
     const inheritedSystems = getInheritedSystemsForObject(objects, systems, object);
     const standaloneEquipment = equipment.filter((item) => !item.systemId && item.placementObjectId === object.id);
-    const linkedEquipmentCount = equipment.filter((item) => item.placementObjectId === object.id).length;
-    const warningCount = (object.area === null ? 1 : 0) + (object.status === 'retired' ? 1 : 0) + collectRequiredParameterWarnings(object, objectType).length;
-    const applicableSystemCount = directSystems.length + inheritedSystems.length;
-    const summaryParts = [formatArea(object.area), `пом. ${childObjects.length}`, `сист. ${applicableSystemCount}`, inheritedSystems.length > 0 ? `наслед. ${inheritedSystems.length}` : null, linkedEquipmentCount > 0 ? `обор. ${linkedEquipmentCount}` : null, warningCount > 0 ? `⚠ ${warningCount}` : null].filter(Boolean);
+    const requiredWarnings = collectRequiredParameterWarnings(object, objectType);
+    const warningCount = (object.area === null ? 1 : 0) + (object.status === 'retired' ? 1 : 0) + requiredWarnings.length;
+    const summaryParts = [`пом. ${childObjects.length}`, `сист. ${directSystems.length}`, inheritedSystems.length > 0 ? `наслед. ${inheritedSystems.length}` : null, warningCount > 0 ? `⚠ ${warningCount}` : null].filter(Boolean);
 
-    nodes.push({ id: object.id, parentId: object.parentId ? roomsFolderId(object.parentId) : null, entityKind: 'object', title: object.name, subtitle: objectType?.shortName || objectType?.name || 'Вид не задан', summary: summaryParts.join(' · '), warning: object.status === 'retired' ? 'снят' : warningCount > 0 ? `⚠ ${warningCount}` : undefined, objectId: object.id, order: 100 + (objectIndex.get(object.id) ?? 0) });
-    nodes.push({ id: systemsFolderId(object.id), parentId: object.id, entityKind: 'objectFolder', title: 'Системы', subtitle: 'Инженерная структура', summary: `сист. ${applicableSystemCount} · наслед. ${inheritedSystems.length} · самост. ${standaloneEquipment.length}`, objectId: object.id, virtualRole: 'systemsFolder', order: 10 });
+    nodes.push({ id: object.id, parentId: object.parentId ? roomsFolderId(object.parentId) : null, entityKind: 'object', title: object.name, subtitle: object.description || objectType?.shortName || objectType?.name || 'Вид не задан', summary: summaryParts.join(' · '), warning: object.status === 'retired' ? 'снят' : warningCount > 0 ? `⚠ ${warningCount}` : undefined, objectId: object.id, order: 100 + (objectIndex.get(object.id) ?? 0) });
+    nodes.push({ id: systemsFolderId(object.id), parentId: object.id, entityKind: 'objectFolder', title: 'Системы', subtitle: 'Инженерная структура', summary: `сист. ${directSystems.length} · наслед. ${inheritedSystems.length}${standaloneEquipment.length > 0 ? ` · самост. ${standaloneEquipment.length}` : ''}`, objectId: object.id, virtualRole: 'systemsFolder', order: 10 });
     nodes.push({ id: roomsFolderId(object.id), parentId: object.id, entityKind: 'objectFolder', title: 'Помещения', subtitle: 'Вложенные объекты', summary: childObjects.length > 0 ? `пом. ${childObjects.length}` : 'нет помещений', objectId: object.id, virtualRole: 'roomsFolder', order: 20 });
-    buildSystemFolderNodes(nodes, object, systems, equipment, objectTypes, directSystems, inheritedSystems, standaloneEquipment);
+    buildSystemFolderNodes(nodes, object, objects, systems, equipment, objectTypes, directSystems, inheritedSystems, standaloneEquipment);
     if (childObjects.length === 0) nodes.push({ id: emptyNodeId('rooms', object.id), parentId: roomsFolderId(object.id), entityKind: 'objectFolder', title: 'нет помещений', subtitle: 'Папка не скрывается', summary: 'можно добавить', objectId: object.id, virtualRole: 'emptyState', readOnly: true, order: 10 });
   });
   return nodes;
 }
 
-function buildSystemFolderNodes(nodes: TreeNode[], object: InfrastructureObject, systems: SystemEntity[], equipment: EquipmentEntity[], objectTypes: ObjectType[], directSystems: SystemEntity[], inheritedSystems: SystemEntity[], standaloneEquipment: EquipmentEntity[]) {
+function buildSystemFolderNodes(nodes: TreeNode[], object: InfrastructureObject, objects: InfrastructureObject[], systems: SystemEntity[], equipment: EquipmentEntity[], objectTypes: ObjectType[], directSystems: SystemEntity[], inheritedSystems: SystemEntity[], standaloneEquipment: EquipmentEntity[]) {
   const directSystemIds = new Set(directSystems.map((system) => system.id));
   const directRoots = directSystems.filter((system) => !system.parentSystemId || !directSystemIds.has(system.parentSystemId));
-  const inheritedRootSystems = inheritedSystems.filter((system) => !inheritedSystems.some((parent) => parent.id === system.parentSystemId));
-  if (directSystems.length + inheritedSystems.length === 0) nodes.push({ id: emptyNodeId('systems', object.id), parentId: systemsFolderId(object.id), entityKind: 'objectFolder', title: 'нет систем', subtitle: 'Папка не скрывается', summary: 'можно добавить', objectId: object.id, virtualRole: 'emptyState', readOnly: true, order: 10 });
-  directRoots.forEach((system, index) => buildSystemNode(nodes, object.id, systems, equipment, objectTypes, system, systemsFolderId(object.id), 100 + index, false));
-  inheritedRootSystems.forEach((system, index) => buildSystemNode(nodes, object.id, systems, equipment, objectTypes, system, systemsFolderId(object.id), 300 + index, true));
+  if (directSystems.length === 0 && inheritedSystems.length === 0) nodes.push({ id: emptyNodeId('systems', object.id), parentId: systemsFolderId(object.id), entityKind: 'objectFolder', title: 'нет систем', subtitle: 'Папка не скрывается', summary: 'можно добавить', objectId: object.id, virtualRole: 'emptyState', readOnly: true, order: 10 });
+  directRoots.forEach((system, index) => buildSystemNode(nodes, object.id, objects, systems, equipment, objectTypes, system, systemsFolderId(object.id), 100 + index));
+  if (inheritedSystems.length > 0) nodes.push({ id: inheritedSummaryId(object.id), parentId: systemsFolderId(object.id), entityKind: 'objectFolder', title: `наследуется ${inheritedSystems.length} систем`, subtitle: 'Полный список в карточке', summary: `наслед. ${inheritedSystems.length}`, objectId: object.id, virtualRole: 'inheritedSystemsFolder', readOnly: true, order: 300 });
   if (standaloneEquipment.length > 0) {
     nodes.push({ id: standaloneFolderId(object.id), parentId: systemsFolderId(object.id), entityKind: 'objectFolder', title: 'Самостоятельное оборудование', subtitle: 'Без системы', summary: `обор. ${standaloneEquipment.length}`, objectId: object.id, virtualRole: 'standaloneEquipmentFolder', order: 700 });
-    standaloneEquipment.filter((item) => !item.parentEquipmentId || !standaloneEquipment.some((candidate) => candidate.id === item.parentEquipmentId)).forEach((item, index) => buildEquipmentNode(nodes, object.id, '', equipment, objectTypes, item, standaloneFolderId(object.id), 100 + index, false));
+    standaloneEquipment.filter((item) => !item.parentEquipmentId || !standaloneEquipment.some((candidate) => candidate.id === item.parentEquipmentId)).forEach((item, index) => buildEquipmentNode(nodes, object.id, '', equipment, objectTypes, objects, item, standaloneFolderId(object.id), 100 + index));
   }
 }
 
-function buildSystemNode(nodes: TreeNode[], objectId: string, systems: SystemEntity[], equipment: EquipmentEntity[], objectTypes: ObjectType[], system: SystemEntity, parentId: string, order: number, inherited: boolean) {
+function buildSystemNode(nodes: TreeNode[], objectId: string, objects: InfrastructureObject[], systems: SystemEntity[], equipment: EquipmentEntity[], objectTypes: ObjectType[], system: SystemEntity, parentId: string, order: number) {
   const systemEquipment = getSystemEquipment(system, equipment);
   const warnings = getSystemWarnings(system, equipment);
   const systemType = objectTypes.find((type) => type.id === system.typeId);
-  const nodeId = systemNodeId(objectId, system.id, inherited);
+  const nodeId = systemNodeId(objectId, system.id);
   const systemWarning = systemEquipment.length === 0 ? 'нет обор.' : warnings.length > 0 ? `⚠ ${warnings.length}` : undefined;
-  nodes.push({ id: nodeId, parentId, entityKind: 'system', refId: system.id, title: system.name, subtitle: `${systemType?.shortName || systemType?.name || 'Система'}${inherited ? ' · наследуется' : ''}`, summary: `${formatSystemSummary(system, equipment)}${inherited ? ' · наслед.' : ''}`, warning: systemWarning, objectId, systemId: system.id, order, readOnly: inherited });
-  systems.filter((child) => child.parentSystemId === system.id).forEach((child, index) => buildSystemNode(nodes, objectId, systems, equipment, objectTypes, child, nodeId, 100 + index, inherited));
+  nodes.push({ id: nodeId, parentId, entityKind: 'system', refId: system.id, title: system.name, subtitle: systemType?.shortName || systemType?.name || 'Система', summary: compactSystemSummary(system, equipment), warning: systemWarning, objectId, systemId: system.id, order });
+  systems.filter((child) => child.parentSystemId === system.id).forEach((child, index) => buildSystemNode(nodes, objectId, objects, systems, equipment, objectTypes, child, nodeId, 100 + index));
   const systemEquipmentIds = new Set(systemEquipment.map((item) => item.id));
-  systemEquipment.filter((item) => !item.parentEquipmentId || !systemEquipmentIds.has(item.parentEquipmentId)).forEach((item, index) => buildEquipmentNode(nodes, objectId, system.id, systemEquipment, objectTypes, item, nodeId, 500 + index, inherited));
+  systemEquipment.filter((item) => !item.parentEquipmentId || !systemEquipmentIds.has(item.parentEquipmentId)).forEach((item, index) => buildEquipmentNode(nodes, objectId, system.id, systemEquipment, objectTypes, objects, item, nodeId, 500 + index));
 }
 
-function buildEquipmentNode(nodes: TreeNode[], objectId: string, systemId: string, equipment: EquipmentEntity[], objectTypes: ObjectType[], item: EquipmentEntity, parentId: string, order: number, readOnly: boolean) {
+function buildEquipmentNode(nodes: TreeNode[], objectId: string, systemId: string, equipment: EquipmentEntity[], objectTypes: ObjectType[], objects: InfrastructureObject[], item: EquipmentEntity, parentId: string, order: number) {
   const type = objectTypes.find((objectType) => objectType.id === item.typeId);
   const nodeId = equipmentNodeId(objectId, systemId, item.id);
-  nodes.push({ id: nodeId, parentId, entityKind: 'equipment', refId: item.id, title: item.name, subtitle: `${type?.shortName || type?.name || 'Оборудование'}${readOnly ? ' · наслед.' : ''}`, summary: `${item.quantity} ${item.unit}`, warning: item.placementObjectId ? undefined : 'нет места', objectId, systemId, order, readOnly });
-  equipment.filter((child) => child.parentEquipmentId === item.id).forEach((child, index) => buildEquipmentNode(nodes, objectId, systemId, equipment, objectTypes, child, nodeId, 100 + index, readOnly));
+  const aggregate = isAggregateEquipment(item, equipment);
+  const placementName = objects.find((object) => object.id === item.placementObjectId)?.name ?? item.placementObjectId;
+  const summary = aggregate ? `ед. ${getEquipmentDisplayQuantity(item, equipment)}` : placementName || 'нет места';
+  nodes.push({ id: nodeId, parentId, entityKind: 'equipment', refId: item.id, title: item.name, subtitle: type?.shortName || type?.name || 'Оборудование', summary, warning: item.placementObjectId ? undefined : 'нет места', objectId, systemId, order });
+  getEquipmentChildren(equipment, item.id).forEach((child, index) => buildEquipmentNode(nodes, objectId, systemId, equipment, objectTypes, objects, child, nodeId, 100 + index));
 }
 
 export function buildTreeNodes(sectionId: NsiSectionId, objects: InfrastructureObject[], systems: SystemEntity[], equipment: EquipmentEntity[], techCards: TechCard[], dictionaries: DictionaryItem[], objectTypes: ObjectType[]): TreeNode[] {
@@ -154,12 +162,13 @@ export function resolveSelectedEntity(selectedRef: SelectedRef, objects: Infrast
     if (selectedRef.id.includes(':systems:')) return { title: 'Системы', subtitle: 'Виртуальная папка инженерной структуры' };
     if (selectedRef.id.includes(':rooms:')) return { title: 'Помещения', subtitle: 'Виртуальная папка объектов и помещений' };
     if (selectedRef.id.includes(':standalone-equipment:')) return { title: 'Самостоятельное оборудование', subtitle: 'Оборудование без системы' };
+    if (selectedRef.id.includes('inherited-systems')) return { title: 'Наследуемые системы', subtitle: 'Полный список отображается в карточке объекта' };
     return { title: 'Служебная строка дерева', subtitle: 'Виртуальный элемент навигации' };
   }
-  if (selectedRef.kind === 'object') { const object = objects.find((item) => item.id === selectedRef.id); if (!object) return null; const objectType = objectTypes.find((type) => type.id === object.typeId); return { title: object.name, subtitle: objectType?.name ?? 'Вид не задан' }; }
+  if (selectedRef.kind === 'object') { const object = objects.find((item) => item.id === selectedRef.id); if (!object) return null; const objectType = objectTypes.find((type) => type.id === object.typeId); return { title: object.name, subtitle: object.description || objectType?.name || 'Вид не задан' }; }
   if (selectedRef.kind === 'objectType') { const type = objectTypes.find((item) => item.id === selectedRef.id); return type ? { title: type.name, subtitle: `${type.code} · ${type.shortName}` } : null; }
-  if (selectedRef.kind === 'system') { const system = systems.find((item) => item.id === selectedRef.id); if (!system) return null; const systemType = objectTypes.find((type) => type.id === system.typeId); const warnings = getSystemWarnings(system, equipment); return { title: system.name, subtitle: `${systemType?.name ?? 'Вид системы не задан'} · ${formatSystemSummary(system, equipment)}${warnings.length > 0 ? ` · ${warnings.length} предупрежд.` : ''}` }; }
-  if (selectedRef.kind === 'equipment') { const item = equipment.find((equipmentItem) => equipmentItem.id === selectedRef.id); if (!item) return null; const type = objectTypes.find((objectType) => objectType.id === item.typeId); return { title: item.name, subtitle: `${type?.name ?? 'Вид оборудования не задан'} · ${item.quantity} ${item.unit}` }; }
+  if (selectedRef.kind === 'system') { const system = systems.find((item) => item.id === selectedRef.id); if (!system) return null; const systemType = objectTypes.find((type) => type.id === system.typeId); const warnings = getSystemWarnings(system, equipment); return { title: system.name, subtitle: `${systemType?.name ?? 'Вид системы не задан'} · ${compactSystemSummary(system, equipment)}${warnings.length > 0 ? ` · ${warnings.length} предупрежд.` : ''}` }; }
+  if (selectedRef.kind === 'equipment') { const item = equipment.find((equipmentItem) => equipmentItem.id === selectedRef.id); if (!item) return null; const type = objectTypes.find((objectType) => objectType.id === item.typeId); return { title: item.name, subtitle: `${type?.name ?? 'Вид оборудования не задан'} · ${getEquipmentSystemLabel(item, systems)}` }; }
   if (selectedRef.kind === 'techCard') { const card = techCards.find((item) => item.id === selectedRef.id); return card ? { title: card.name || 'Техкарта без наименования', subtitle: `${card.type || 'тип не задан'} · ${resolveTargetName(card, objects, systems, equipment)}` } : null; }
   const dictionary = dictionaries.find((item) => item.id === selectedRef.id);
   return dictionary ? { title: dictionary.title, subtitle: dictionary.code } : null;
