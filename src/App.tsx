@@ -14,6 +14,7 @@ const roomsFolderId = (objectId: string) => `folder:rooms:${objectId}`;
 const toggleId = (ids: string[], id: string) => ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id];
 
 type ChildUnitRow = { name: string; inventoryNumber?: string };
+type ReorderDirection = 'up' | 'down';
 
 function App() {
   const [isDemoMode, setIsDemoMode] = useState(true);
@@ -113,6 +114,7 @@ function App() {
 
   const syncEquipmentSystemLinks = (equipmentId: string, oldSystemId: string, nextSystemId: string) => { if (oldSystemId === nextSystemId) return; setSystems((prev) => prev.map((system) => { if (system.id === oldSystemId) return { ...system, equipmentIds: system.equipmentIds.filter((id) => id !== equipmentId) }; if (system.id === nextSystemId) return { ...system, equipmentIds: Array.from(new Set([...system.equipmentIds, equipmentId])) }; return system; })); };
   const updateEquipment = (id: string, patch: Partial<EquipmentEntity>) => { const current = equipment.find((item) => item.id === id); if (current && patch.systemId !== undefined) syncEquipmentSystemLinks(id, current.systemId, patch.systemId); setEquipment((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item))); };
+  const reorderChildUnit = (parentEquipmentId: string, unitId: string, direction: ReorderDirection) => { setEquipment((prev) => { const unitChildren = prev.filter((item) => item.parentEquipmentId === parentEquipmentId && item.parameters.equipmentLevel === 'unit'); const currentIndex = unitChildren.findIndex((item) => item.id === unitId); const nextIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1; if (currentIndex < 0 || nextIndex < 0 || nextIndex >= unitChildren.length) return prev; const reorderedChildren = [...unitChildren]; [reorderedChildren[currentIndex], reorderedChildren[nextIndex]] = [reorderedChildren[nextIndex], reorderedChildren[currentIndex]]; let childIndex = 0; return prev.map((item) => { if (item.parentEquipmentId !== parentEquipmentId || item.parameters.equipmentLevel !== 'unit') return item; const nextItem = reorderedChildren[childIndex] ?? item; childIndex += 1; return nextItem; }); }); };
   const handleCreate = (kind: CreateEntityKind, parentObjectId?: string | null, contextSystemId?: string | null, parentEquipmentId?: string | null) => { if (kind === 'rootObject' || kind === 'childObject' || kind === 'room') { startObjectDraft(kind, parentObjectId); return; } const parentId = parentObjectId ?? (selectedRef.kind === 'object' ? selectedRef.id : selectedContextObjectId); const parent = objects.find((item) => item.id === parentId); const createdAt = Date.now(); if (kind === 'system') { const system = { ...createSystemEntity({ createdAt, typeId: objectTypes.find((type) => type.code === 'SYSTEM')?.id ?? 'type-system', parentObject: parent ?? null, isRoom: parent ? isRoomType(parent.typeId, objectTypes) : false }), parentSystemId: contextSystemId || null }; setSystems((prev) => [...prev, system]); setSelectedRef({ kind: 'system', id: system.id }); setSelectedContextObjectId(parentId ?? null); setActiveTab('Параметры'); setActiveGroupId('main'); setDetailsNotice({ type: 'editHint', title: contextSystemId ? 'Подсистема добавлена' : 'Система добавлена', message: 'Сущность открыта в карточке.' }); return; } startEquipmentDraft(parentId, contextSystemId, parentEquipmentId); };
   const addEquipmentToSystem = (systemId: string) => handleCreate('equipment', selectedContextObjectId ?? objects[0]?.id ?? '', systemId);
   const addChildEquipment = (parentEquipmentId: string) => { const parent = equipment.find((item) => item.id === parentEquipmentId); handleCreate('equipment', parent?.placementObjectId ?? selectedContextObjectId, parent?.systemId ?? '', parentEquipmentId); };
@@ -193,6 +195,7 @@ function App() {
     onUpdateObjectType={(id, patch) => setObjectTypes((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)))}
     onUpdateSystem={(id, patch) => setSystems((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)))}
     onUpdateEquipment={updateEquipment}
+    onReorderChildUnit={reorderChildUnit}
     onCreateSystemType={createSystemTypeForSystem}
     onCreateEquipmentType={createEquipmentTypeForEquipment}
     onAddEquipmentToSystem={addEquipmentToSystem}
