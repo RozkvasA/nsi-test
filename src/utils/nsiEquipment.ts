@@ -16,6 +16,7 @@ export function createEquipmentEntity(args: {
   name?: string;
   equipmentLevel?: EquipmentLevel;
   quantity?: number;
+  unit?: string;
 }): EquipmentEntity {
   const level = args.parentEquipmentId ? 'unit' : args.equipmentLevel ?? 'unit';
 
@@ -27,7 +28,7 @@ export function createEquipmentEntity(args: {
     systemId: args.systemId,
     placementObjectId: args.placementObjectId,
     quantity: level === 'unit' ? 1 : args.quantity ?? 1,
-    unit: 'шт.',
+    unit: args.unit ?? 'шт.',
     parameters: { manufacturer: null, inventoryNumber: null, equipmentLevel: level },
   };
 }
