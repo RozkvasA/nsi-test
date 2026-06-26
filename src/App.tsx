@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { dictionaries as initialDictionaries, equipment as initialEquipment, infrastructureObjects as initialObjects, nsiSections, objectStructureTemplates as initialObjectStructureTemplates, objectTypes as initialObjectTypes, systems as initialSystems, techCards as initialTechCards } from './data/nsiDemoData';
 import { NsiLayout } from './components/layout/NsiLayout';
-import type { CreateEntityKind, DetailsNotice, DictionaryItem, EquipmentEntity, EquipmentLevel, EntityKind, InfrastructureObject, NsiSectionId, ObjectStructureTemplate, ObjectType, ParameterDefinition, ParameterGroupId, ParameterGroupView, PendingEquipmentDraft, PendingObjectDraft, RootObjectCreationMode, SelectedRef, SystemEntity, TechCard, TreeActionId, TreeNode } from './types/nsi';
+import type { CreateEntityKind, DetailsNotice, DictionaryItem, EquipmentEntity, EntityKind, InfrastructureObject, NsiSectionId, ObjectStructureTemplate, ObjectType, ParameterDefinition, ParameterGroupId, ParameterGroupView, PendingEquipmentDraft, PendingObjectDraft, RootObjectCreationMode, SelectedRef, SystemEntity, TechCard, TreeActionId, TreeNode } from './types/nsi';
 import { buildDescendantIds, buildObjectTypeDescendantIds, buildTreeNodes, filterTreeNodes, getObjectTypeRetireImpact, getRetireImpact, groupTreeNodes, isRoomType, resolveSelectedEntity } from './utils/nsiTree';
 import { buildObjectsFromTemplate, normalizeDetailLevel } from './utils/nsiObjectTemplates';
 import { createEquipmentEntity } from './utils/nsiEquipment';
@@ -12,6 +12,8 @@ const parameterGroups: ParameterGroupView[] = [{ id: 'main', title: 'Основ�
 const nextKindBySection: Record<NsiSectionId, EntityKind> = { overview: 'object', objects: 'object', objectTypes: 'objectType', techCards: 'techCard', dictionaries: 'dictionary' };
 const roomsFolderId = (objectId: string) => `folder:rooms:${objectId}`;
 const toggleId = (ids: string[], id: string) => ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id];
+
+type ChildUnitRow = { name: string; inventoryNumber?: string };
 
 function App() {
   const [isDemoMode, setIsDemoMode] = useState(true);
@@ -115,6 +117,7 @@ function App() {
   const addEquipmentToSystem = (systemId: string) => handleCreate('equipment', selectedContextObjectId ?? objects[0]?.id ?? '', systemId);
   const addChildEquipment = (parentEquipmentId: string) => { const parent = equipment.find((item) => item.id === parentEquipmentId); handleCreate('equipment', parent?.placementObjectId ?? selectedContextObjectId, parent?.systemId ?? '', parentEquipmentId); };
   const createMissingChildEquipmentUnits = (parentEquipmentId: string) => { const parent = equipment.find((item) => item.id === parentEquipmentId); if (!parent) return; const existingUnitChildren = equipment.filter((item) => item.parentEquipmentId === parent.id && item.parameters.equipmentLevel === 'unit'); const targetQuantity = Math.max(0, Number(parent.quantity) || 0); const missingCount = Math.max(targetQuantity - existingUnitChildren.length, 0); if (missingCount === 0) { setDetailsNotice({ type: 'editHint', title: 'Единицы уже созданы', message: `Создано единиц: ${existingUnitChildren.length} из ${targetQuantity}.` }); return; } const technicalName = typeof parent.parameters.inventoryNumber === 'string' ? parent.parameters.inventoryNumber.trim() : ''; const baseName = technicalName || parent.name; const createdAt = Date.now(); const createdUnits = Array.from({ length: missingCount }, (_, index) => createEquipmentEntity({ createdAt: createdAt + index, systemId: parent.systemId, typeId: parent.typeId, placementObjectId: parent.placementObjectId, parentEquipmentId: parent.id, name: `${baseName} ${String(existingUnitChildren.length + index + 1).padStart(3, '0')}`, equipmentLevel: 'unit', quantity: 1, unit: 'шт.' })); setEquipment((prev) => [...prev, ...createdUnits]); if (parent.systemId) setSystems((prev) => prev.map((system) => system.id === parent.systemId ? { ...system, equipmentIds: Array.from(new Set([...system.equipmentIds, ...createdUnits.map((item) => item.id)])) } : system)); setDetailsNotice({ type: 'editHint', title: 'Единицы созданы', message: `Создано недостающих единиц: ${createdUnits.length}.` }); };
+  const createChildUnitsFromRows = (parentEquipmentId: string, rows: ChildUnitRow[]) => { const parent = equipment.find((item) => item.id === parentEquipmentId); if (!parent) return; const sourceRows = rows.filter((row) => row.name.trim().length > 0); if (sourceRows.length === 0) { setDetailsNotice({ type: 'editHint', title: 'Нет строк для создания', message: 'Лишние строки с пустым наименованием не используются.' }); return; } const createdAt = Date.now(); const createdUnits = sourceRows.map((row, index) => { const unit = createEquipmentEntity({ createdAt: createdAt + index, systemId: parent.systemId, typeId: parent.typeId, placementObjectId: parent.placementObjectId, parentEquipmentId: parent.id, name: row.name.trim(), equipmentLevel: 'unit', quantity: 1, unit: 'шт.' }); return row.inventoryNumber !== undefined ? { ...unit, parameters: { ...unit.parameters, inventoryNumber: row.inventoryNumber } } : unit; }); setEquipment((prev) => [...prev, ...createdUnits]); if (parent.systemId) setSystems((prev) => prev.map((system) => system.id === parent.systemId ? { ...system, equipmentIds: Array.from(new Set([...system.equipmentIds, ...createdUnits.map((item) => item.id)])) } : system)); setDetailsNotice({ type: 'editHint', title: 'Единицы созданы из списка', message: `Создано unit из лишних строк: ${createdUnits.length}.` }); };
   const detachEquipmentFromSystem = (systemId: string, equipmentId: string) => { setEquipment((prev) => prev.map((item) => (item.id === equipmentId ? { ...item, systemId: '', parentEquipmentId: null } : item))); setSystems((prev) => prev.map((system) => (system.id === systemId ? { ...system, equipmentIds: system.equipmentIds.filter((id) => id !== equipmentId) } : system))); setSelectedRef({ kind: 'equipment', id: equipmentId }); setDetailsNotice({ type: 'editHint', title: 'Оборудование стало самостоятельным', message: 'Место размещения сохранено.' }); };
   const createTechCardForEquipment = (equipmentId: string) => { const item = equipment.find((equipmentItem) => equipmentItem.id === equipmentId); if (!item) return; const createdAt = Date.now(); const card: TechCard = { id: `tc-eq-${createdAt}`, name: `Новая техкарта для ${item.name}`, type: '', targetType: 'equipment', targetId: item.id, targetObjectTypeId: item.typeId, workTypeId: '', inputDate: '', outputDate: '', periodicity: '', minExecutionInterval: '', minDurationManHours: null, operations: [], personnel: [], materials: [], ppe: [], isActive: false, isComplex: false }; setTechCards((prev) => [...prev, card]); setSelectedRef({ kind: 'techCard', id: card.id }); setActiveTab('Параметры'); setDetailsNotice({ type: 'editHint', title: 'Техкарта создана', message: 'Создан черновик техкарты.' }); };
   const linkSystemToContextObject = (systemId: string) => { const contextObject = selectedContextObjectId ? objects.find((object) => object.id === selectedContextObjectId) : null; if (!contextObject) return; setSystems((prev) => prev.map((system) => { if (system.id !== systemId) return system; if (isRoomType(contextObject.typeId, objectTypes)) return { ...system, scopeType: 'singleRoom', linkedRoomIds: Array.from(new Set([...system.linkedRoomIds, contextObject.id])) }; return { ...system, scopeType: 'objectNode', scopeObjectIds: Array.from(new Set([...system.scopeObjectIds, contextObject.id])) }; })); };
@@ -129,7 +132,91 @@ function App() {
   const startMove = (ref: SelectedRef) => { setPendingMoveRef(ref); setSelectedRef(ref); setDetailsNotice({ type: 'moveMode', title: 'Режим переноса', message: 'Выберите новый родительский узел.' }); };
   const handleTreeAction = (node: TreeNode, actionId: TreeActionId) => { const actualNode = treeNodes.find((item) => item.id === node.id) ?? node; handleSelectNode(actualNode); if (actionId === 'edit') return; if (actualNode.entityKind === 'object') { if (actionId === 'move') startMove({ kind: 'object', id: actualNode.refId ?? actualNode.id }); if (actionId === 'retire') requestRetireObject(actualNode.refId ?? actualNode.id); if (actionId === 'copy') copyObject(actualNode.refId ?? actualNode.id); } if (actualNode.entityKind === 'objectType') { if (actionId === 'add') addObjectType(actualNode.refId ?? actualNode.id, 'Новый дочерний вид'); if (actionId === 'move') startMove({ kind: 'objectType', id: actualNode.refId ?? actualNode.id }); if (actionId === 'retire') requestRetireObjectType(actualNode.refId ?? actualNode.id); if (actionId === 'copy') copyObjectType(actualNode.refId ?? actualNode.id); } };
 
-  return <NsiLayout sections={nsiSections} activeSection={activeSection} activeSectionId={activeSectionId} isDemoMode={isDemoMode} searchQuery={searchQuery} sortAscending={sortAscending} childrenByParentId={childrenByParentId} expandedIds={expandedIds} selectedRef={selectedRef} selectedEntity={selectedEntity} pendingMoveRef={pendingMoveRef} pendingObjectDraft={pendingObjectDraft} pendingEquipmentDraft={pendingEquipmentDraft} activeTab={activeTab} tabs={tabs} activeGroupId={activeGroupId} parameterGroups={parameterGroups} showEmpty={showEmpty} detailsNotice={detailsNotice} objects={objects} objectTypes={objectTypes} objectStructureTemplates={objectStructureTemplates} systems={systems} equipment={equipment} techCards={techCards} dictionaries={dictionaries} selectedContextObjectId={selectedContextObjectId} onToggleDemoMode={toggleDemoMode} onSelectSection={selectSection} onOpenObjectInTree={openObjectInTree} onCreateRootFromTemplate={handleCreateRootFromTemplate} onSetSearchQuery={setSearchQuery} onToggleSort={() => setSortAscending((value) => !value)} onToggleExpanded={toggleExpanded} onSelectNode={handleSelectNode} onStartDrag={(node) => setDraggedRef({ kind: node.entityKind, id: node.refId ?? node.id })} onDropOnNode={(node) => { if (!draggedRef) return; moveSelectedRefToNode(draggedRef, node); setDraggedRef(null); }} onCreate={handleCreate} onTreeAction={handleTreeAction} onMoveToNode={(node) => pendingMoveRef && moveSelectedRefToNode(pendingMoveRef, node)} onCancelMove={() => { setPendingMoveRef(null); setDetailsNotice(null); }} onSetActiveTab={setActiveTab} onSetActiveGroupId={setActiveGroupId} onSetShowEmpty={setShowEmpty} onDismissNotice={() => setDetailsNotice(null)} onConfirmRetire={confirmRetireObject} onCancelRetire={() => setDetailsNotice(null)} onConfirmObjectTypeRetire={confirmRetireObjectType} onUpdatePendingObjectDraft={(patch) => setPendingObjectDraft((prev) => { if (!prev) return prev; const selectedTemplate = patch.templateId ? objectStructureTemplates.find((template) => template.id === patch.templateId) : undefined; return { ...prev, ...patch, ...(selectedTemplate ? { typeId: selectedTemplate.rootTypeId, detailLevel: selectedTemplate.detailLevel } : {}) }; })} onConfirmCreateObject={confirmCreateObject} onCancelPendingObjectDraft={resetRightPanel} onUpdatePendingEquipmentDraft={updatePendingEquipmentDraft} onConfirmCreateEquipment={confirmCreateEquipment} onCancelPendingEquipmentDraft={resetRightPanel} onCreateObjectTypeForDraft={createObjectTypeForDraft} onUpdateObject={(id, patch) => setObjects((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)))} onUpdateObjectType={(id, patch) => setObjectTypes((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)))} onUpdateSystem={(id, patch) => setSystems((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)))} onUpdateEquipment={updateEquipment} onCreateSystemType={createSystemTypeForSystem} onCreateEquipmentType={createEquipmentTypeForEquipment} onAddEquipmentToSystem={addEquipmentToSystem} onAddChildEquipment={addChildEquipment} onCreateMissingChildUnits={createMissingChildEquipmentUnits} onDetachEquipmentFromSystem={detachEquipmentFromSystem} onSelectSystem={handleSelectSystem} onSelectEquipment={handleSelectEquipment} onSelectTechCard={handleSelectTechCard} onCreateTechCardForEquipment={createTechCardForEquipment} onLinkSystemToContextObject={linkSystemToContextObject} onLinkSystemToRoomsInContext={linkSystemToRoomsInContext} onToggleAllowedChildType={(typeId, childTypeId) => setObjectTypes((prev) => prev.map((type) => type.id !== typeId ? type : { ...type, allowedChildTypeIds: toggleId(type.allowedChildTypeIds, childTypeId) }))} onAddParameterGroup={(typeId) => { const id = `group-${Date.now()}`; setObjectTypes((prev) => prev.map((type) => type.id === typeId ? { ...type, parameterGroups: [...type.parameterGroups, { id, name: 'Новая группа', parameterIds: [] }] } : type)); }} onRenameParameterGroup={(typeId, groupId, name) => setObjectTypes((prev) => prev.map((type) => type.id === typeId ? { ...type, parameterGroups: type.parameterGroups.map((group) => group.id === groupId ? { ...group, name } : group) } : type))} onAddParameterToGroup={(typeId, groupId) => { const createdAt = Date.now(); const parameter: ParameterDefinition = { id: `param-${createdAt}`, name: 'Новый параметр', code: `param_${createdAt}`, dataType: 'string', unit: '', required: false, showInTree: false, defaultValue: null }; setObjectTypes((prev) => prev.map((type) => type.id === typeId ? { ...type, parameters: [...type.parameters, parameter], parameterGroups: type.parameterGroups.map((group) => group.id === groupId ? { ...group, parameterIds: [...group.parameterIds, parameter.id] } : group) } : type)); }} onUpdateParameter={(typeId, parameterId, patch) => setObjectTypes((prev) => prev.map((type) => type.id === typeId ? { ...type, parameters: type.parameters.map((parameter) => parameter.id === parameterId ? { ...parameter, ...patch } : parameter) } : type))} onDeleteParameter={(typeId, parameterId) => setObjectTypes((prev) => prev.map((type) => type.id === typeId ? { ...type, parameters: type.parameters.filter((parameter) => parameter.id !== parameterId), parameterGroups: type.parameterGroups.map((group) => ({ ...group, parameterIds: group.parameterIds.filter((id) => id !== parameterId) })) } : type))} onToggleObjectSystemLink={(objectId, systemId) => setSystems((prev) => prev.map((system) => { if (system.id !== systemId) return system; const object = objects.find((item) => item.id === objectId); if (object && isRoomType(object.typeId, objectTypes)) return { ...system, linkedRoomIds: toggleId(system.linkedRoomIds, objectId) }; return { ...system, scopeObjectIds: toggleId(system.scopeObjectIds, objectId) }; }))} onToggleEquipmentPlacement={(objectId, equipmentId) => setEquipment((prev) => prev.map((item) => item.id === equipmentId ? { ...item, placementObjectId: item.placementObjectId === objectId ? '' : objectId } : item))} onToggleSystemRoomLink={(systemId, roomId) => setSystems((prev) => prev.map((system) => system.id === systemId ? { ...system, linkedRoomIds: toggleId(system.linkedRoomIds, roomId) } : system))} onBulkLinkRoomsToSystem={(systemId, roomIds) => setSystems((prev) => prev.map((system) => system.id === systemId ? { ...system, linkedRoomIds: Array.from(new Set([...system.linkedRoomIds, ...roomIds])) } : system))} onUpdateTechCard={(id, patch) => setTechCards((prev) => prev.map((card) => card.id === id ? { ...card, ...patch } : card))} />;
+  return <NsiLayout
+    sections={nsiSections}
+    activeSection={activeSection}
+    activeSectionId={activeSectionId}
+    isDemoMode={isDemoMode}
+    searchQuery={searchQuery}
+    sortAscending={sortAscending}
+    childrenByParentId={childrenByParentId}
+    expandedIds={expandedIds}
+    selectedRef={selectedRef}
+    selectedEntity={selectedEntity}
+    pendingMoveRef={pendingMoveRef}
+    pendingObjectDraft={pendingObjectDraft}
+    pendingEquipmentDraft={pendingEquipmentDraft}
+    activeTab={activeTab}
+    tabs={tabs}
+    activeGroupId={activeGroupId}
+    parameterGroups={parameterGroups}
+    showEmpty={showEmpty}
+    detailsNotice={detailsNotice}
+    objects={objects}
+    objectTypes={objectTypes}
+    objectStructureTemplates={objectStructureTemplates}
+    systems={systems}
+    equipment={equipment}
+    techCards={techCards}
+    dictionaries={dictionaries}
+    selectedContextObjectId={selectedContextObjectId}
+    onToggleDemoMode={toggleDemoMode}
+    onSelectSection={selectSection}
+    onOpenObjectInTree={openObjectInTree}
+    onCreateRootFromTemplate={handleCreateRootFromTemplate}
+    onSetSearchQuery={setSearchQuery}
+    onToggleSort={() => setSortAscending((value) => !value)}
+    onToggleExpanded={toggleExpanded}
+    onSelectNode={handleSelectNode}
+    onStartDrag={(node) => setDraggedRef({ kind: node.entityKind, id: node.refId ?? node.id })}
+    onDropOnNode={(node) => { if (!draggedRef) return; moveSelectedRefToNode(draggedRef, node); setDraggedRef(null); }}
+    onCreate={handleCreate}
+    onTreeAction={handleTreeAction}
+    onMoveToNode={(node) => pendingMoveRef && moveSelectedRefToNode(pendingMoveRef, node)}
+    onCancelMove={() => { setPendingMoveRef(null); setDetailsNotice(null); }}
+    onSetActiveTab={setActiveTab}
+    onSetActiveGroupId={setActiveGroupId}
+    onSetShowEmpty={setShowEmpty}
+    onDismissNotice={() => setDetailsNotice(null)}
+    onConfirmRetire={confirmRetireObject}
+    onCancelRetire={() => setDetailsNotice(null)}
+    onConfirmObjectTypeRetire={confirmRetireObjectType}
+    onUpdatePendingObjectDraft={(patch) => setPendingObjectDraft((prev) => { if (!prev) return prev; const selectedTemplate = patch.templateId ? objectStructureTemplates.find((template) => template.id === patch.templateId) : undefined; return { ...prev, ...patch, ...(selectedTemplate ? { typeId: selectedTemplate.rootTypeId, detailLevel: selectedTemplate.detailLevel } : {}) }; })}
+    onConfirmCreateObject={confirmCreateObject}
+    onCancelPendingObjectDraft={resetRightPanel}
+    onUpdatePendingEquipmentDraft={updatePendingEquipmentDraft}
+    onConfirmCreateEquipment={confirmCreateEquipment}
+    onCancelPendingEquipmentDraft={resetRightPanel}
+    onCreateObjectTypeForDraft={createObjectTypeForDraft}
+    onUpdateObject={(id, patch) => setObjects((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)))}
+    onUpdateObjectType={(id, patch) => setObjectTypes((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)))}
+    onUpdateSystem={(id, patch) => setSystems((prev) => prev.map((item) => (item.id === id ? { ...item, ...patch } : item)))}
+    onUpdateEquipment={updateEquipment}
+    onCreateSystemType={createSystemTypeForSystem}
+    onCreateEquipmentType={createEquipmentTypeForEquipment}
+    onAddEquipmentToSystem={addEquipmentToSystem}
+    onAddChildEquipment={addChildEquipment}
+    onCreateMissingChildUnits={createMissingChildEquipmentUnits}
+    onCreateChildUnitsFromRows={createChildUnitsFromRows}
+    onDetachEquipmentFromSystem={detachEquipmentFromSystem}
+    onSelectSystem={handleSelectSystem}
+    onSelectEquipment={handleSelectEquipment}
+    onSelectTechCard={handleSelectTechCard}
+    onCreateTechCardForEquipment={createTechCardForEquipment}
+    onLinkSystemToContextObject={linkSystemToContextObject}
+    onLinkSystemToRoomsInContext={linkSystemToRoomsInContext}
+    onToggleAllowedChildType={(typeId, childTypeId) => setObjectTypes((prev) => prev.map((type) => type.id !== typeId ? type : { ...type, allowedChildTypeIds: toggleId(type.allowedChildTypeIds, childTypeId) }))}
+    onAddParameterGroup={(typeId) => { const id = `group-${Date.now()}`; setObjectTypes((prev) => prev.map((type) => type.id === typeId ? { ...type, parameterGroups: [...type.parameterGroups, { id, name: 'Новая группа', parameterIds: [] }] } : type)); }}
+    onRenameParameterGroup={(typeId, groupId, name) => setObjectTypes((prev) => prev.map((type) => type.id === typeId ? { ...type, parameterGroups: type.parameterGroups.map((group) => group.id === groupId ? { ...group, name } : group) } : type))}
+    onAddParameterToGroup={(typeId, groupId) => { const createdAt = Date.now(); const parameter: ParameterDefinition = { id: `param-${createdAt}`, name: 'Новый параметр', code: `param_${createdAt}`, dataType: 'string', unit: '', required: false, showInTree: false, defaultValue: null }; setObjectTypes((prev) => prev.map((type) => type.id === typeId ? { ...type, parameters: [...type.parameters, parameter], parameterGroups: type.parameterGroups.map((group) => group.id === groupId ? { ...group, parameterIds: [...group.parameterIds, parameter.id] } : group) } : type)); }}
+    onUpdateParameter={(typeId, parameterId, patch) => setObjectTypes((prev) => prev.map((type) => type.id === typeId ? { ...type, parameters: type.parameters.map((parameter) => parameter.id === parameterId ? { ...parameter, ...patch } : parameter) } : type))}
+    onDeleteParameter={(typeId, parameterId) => setObjectTypes((prev) => prev.map((type) => type.id === typeId ? { ...type, parameters: type.parameters.filter((parameter) => parameter.id !== parameterId), parameterGroups: type.parameterGroups.map((group) => ({ ...group, parameterIds: group.parameterIds.filter((id) => id !== parameterId) })) } : type))}
+    onToggleObjectSystemLink={(objectId, systemId) => setSystems((prev) => prev.map((system) => { if (system.id !== systemId) return system; const object = objects.find((item) => item.id === objectId); if (object && isRoomType(object.typeId, objectTypes)) return { ...system, linkedRoomIds: toggleId(system.linkedRoomIds, objectId) }; return { ...system, scopeObjectIds: toggleId(system.scopeObjectIds, objectId) }; }))}
+    onToggleEquipmentPlacement={(objectId, equipmentId) => setEquipment((prev) => prev.map((item) => item.id === equipmentId ? { ...item, placementObjectId: item.placementObjectId === objectId ? '' : objectId } : item))}
+    onToggleSystemRoomLink={(systemId, roomId) => setSystems((prev) => prev.map((system) => system.id === systemId ? { ...system, linkedRoomIds: toggleId(system.linkedRoomIds, roomId) } : system))}
+    onBulkLinkRoomsToSystem={(systemId, roomIds) => setSystems((prev) => prev.map((system) => system.id === systemId ? { ...system, linkedRoomIds: Array.from(new Set([...system.linkedRoomIds, ...roomIds])) } : system))}
+    onUpdateTechCard={(id, patch) => setTechCards((prev) => prev.map((card) => card.id === id ? { ...card, ...patch } : card))}
+  />;
 }
 
 export default App;
