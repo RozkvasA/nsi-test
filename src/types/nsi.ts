@@ -18,6 +18,8 @@ export type ParameterDefaultValue = string | number | boolean | null;
 
 export type RootObjectCreationMode = 'empty' | 'template';
 
+export type EquipmentLevel = 'unit' | 'group' | 'model' | 'aggregate';
+
 export type ObjectTreeVirtualRole = 'systemsFolder' | 'roomsFolder' | 'inheritedSystemsFolder' | 'standaloneEquipmentFolder' | 'emptyState';
 
 export interface ParameterDefinition {
@@ -80,6 +82,17 @@ export interface PendingObjectDraft {
   creationMode: RootObjectCreationMode;
   templateId: string;
   detailLevel: number;
+}
+
+export interface PendingEquipmentDraft {
+  name: string;
+  typeId: string;
+  equipmentLevel: EquipmentLevel;
+  systemId: string;
+  placementObjectId: string;
+  quantity: number;
+  unit: string;
+  parentEquipmentId: string | null;
 }
 
 export interface RetireImpact {
