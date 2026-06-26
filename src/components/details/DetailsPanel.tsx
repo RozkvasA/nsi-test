@@ -60,6 +60,7 @@ interface DetailsPanelProps {
   onUpdateObjectType: (id: string, patch: Partial<ObjectType>) => void;
   onUpdateSystem: (id: string, patch: Partial<SystemEntity>) => void;
   onUpdateEquipment: (id: string, patch: Partial<EquipmentEntity>) => void;
+  onReorderChildUnit: (parentEquipmentId: string, unitId: string, direction: 'up' | 'down') => void;
   onCreateSystemType: (systemId: string) => void;
   onCreateEquipmentType: (equipmentId: string) => void;
   onAddEquipmentToSystem: (systemId: string) => void;
@@ -108,7 +109,7 @@ export function DetailsPanel(props: DetailsPanelProps) {
     objects, objectTypes, objectStructureTemplates, systems, equipment, techCards, dictionaries, selectedContextObjectId,
     onCreate, onSetActiveTab, onDismissNotice, onConfirmRetire, onCancelRetire, onConfirmObjectTypeRetire,
     onUpdatePendingObjectDraft, onConfirmCreateObject, onCancelPendingObjectDraft, onUpdatePendingEquipmentDraft, onConfirmCreateEquipment, onCancelPendingEquipmentDraft,
-    onCreateObjectTypeForDraft, onUpdateObject, onUpdateObjectType, onUpdateSystem, onUpdateEquipment, onCreateSystemType, onCreateEquipmentType,
+    onCreateObjectTypeForDraft, onUpdateObject, onUpdateObjectType, onUpdateSystem, onUpdateEquipment, onReorderChildUnit, onCreateSystemType, onCreateEquipmentType,
     onAddEquipmentToSystem, onAddChildEquipment, onCreateMissingChildUnits, onCreateChildUnitsFromRows, onRemoveChildUnits, onDetachEquipmentFromSystem, onSelectSystem, onSelectEquipment, onSelectTechCard, onCreateTechCardForEquipment,
     onLinkSystemToContextObject, onLinkSystemToRoomsInContext, onToggleAllowedChildType, onAddParameterGroup, onRenameParameterGroup, onAddParameterToGroup,
     onUpdateParameter, onDeleteParameter, onToggleObjectSystemLink, onToggleEquipmentPlacement, onToggleSystemRoomLink, onBulkLinkRoomsToSystem, onUpdateTechCard,
@@ -143,7 +144,7 @@ export function DetailsPanel(props: DetailsPanelProps) {
       ) : selectedSystem ? (
         <SystemContent system={selectedSystem} systems={systems} objects={objects} objectTypes={objectTypes} equipment={equipment} activeTab={activeTab} contextObjectId={selectedContextObjectId} onSetActiveTab={onSetActiveTab} onUpdateSystem={onUpdateSystem} onCreateSystemType={onCreateSystemType} onAddEquipmentToSystem={onAddEquipmentToSystem} onDetachEquipmentFromSystem={onDetachEquipmentFromSystem} onSelectEquipment={onSelectEquipment} onSelectSystem={(systemId) => onSelectSystem(systemId, selectedContextObjectId)} onCreate={onCreate} onLinkSystemToContextObject={onLinkSystemToContextObject} onLinkSystemToRoomsInContext={onLinkSystemToRoomsInContext} />
       ) : selectedEquipment ? (
-        <EquipmentContent equipmentItem={selectedEquipment} equipment={equipment} systems={systems} objects={objects} objectTypes={objectTypes} techCards={techCards} activeTab={activeTab} onSetActiveTab={onSetActiveTab} onUpdateEquipment={onUpdateEquipment} onCreateEquipmentType={onCreateEquipmentType} onAddChildEquipment={onAddChildEquipment} onCreateMissingChildUnits={onCreateMissingChildUnits} onCreateChildUnitsFromRows={onCreateChildUnitsFromRows} onRemoveChildUnits={onRemoveChildUnits} onSelectEquipment={onSelectEquipment} onSelectSystem={(systemId) => onSelectSystem(systemId, selectedContextObjectId)} onSelectTechCard={onSelectTechCard} onCreateTechCardForEquipment={onCreateTechCardForEquipment} />
+        <EquipmentContent equipmentItem={selectedEquipment} equipment={equipment} systems={systems} objects={objects} objectTypes={objectTypes} techCards={techCards} activeTab={activeTab} onSetActiveTab={onSetActiveTab} onUpdateEquipment={onUpdateEquipment} onReorderChildUnit={onReorderChildUnit} onCreateEquipmentType={onCreateEquipmentType} onAddChildEquipment={onAddChildEquipment} onCreateMissingChildUnits={onCreateMissingChildUnits} onCreateChildUnitsFromRows={onCreateChildUnitsFromRows} onRemoveChildUnits={onRemoveChildUnits} onSelectEquipment={onSelectEquipment} onSelectSystem={(systemId) => onSelectSystem(systemId, selectedContextObjectId)} onSelectTechCard={onSelectTechCard} onCreateTechCardForEquipment={onCreateTechCardForEquipment} />
       ) : selectedTechCard ? (
         <TechCardContent card={selectedTechCard} objectTypes={objectTypes} dictionaries={dictionaries} activeTab={activeTab} onSetActiveTab={onSetActiveTab} onUpdateTechCard={onUpdateTechCard} />
       ) : (
