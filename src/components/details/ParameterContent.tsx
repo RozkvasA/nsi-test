@@ -72,7 +72,7 @@ function isRoomVisibleEquipment(item: EquipmentEntity, equipment: EquipmentEntit
   const hasChildren = hasEquipmentChildren(equipment, item.id);
 
   if (hasChildren) return false;
-  if (level === 'group' || level === 'model' || level === 'aggregate') return false;
+  if (level !== 'unit') return false;
 
   return true;
 }
@@ -416,7 +416,7 @@ function SectionTitle({ title, description }: { title: string; description: stri
 function EditableField({ label, value, type = 'text', readOnly = false, onChange }: { label: string; value: string | number; type?: 'text' | 'number'; readOnly?: boolean; onChange?: (value: string) => void }) { return <label className="field-row"><span>{label}</span><input type={type} value={value} readOnly={readOnly} onChange={(event) => onChange?.(event.target.value)} /></label>; }
 function SelectField({ label, value, options, onChange }: { label: string; value: string; options: Array<{ value: string; label: string }>; onChange: (value: string) => void }) { return <label className="field-row"><span>{label}</span><select value={value} onChange={(event) => onChange(event.target.value)}>{options.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>; }
 function CheckboxField({ label, checked, onChange }: { label: string; checked: boolean; onChange: (checked: boolean) => void }) { return <label className="boolean-row"><input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} /><span>{label}</span></label>; }
-function ReadOnlyField({ label, value }: { label: string; value: string | number }) { return <label className="field-row"><span>{label}</span><input value={value} readOnly /></label>; }
+function ReadOnlyField({ label, value }: { label: string | number; value: string | number }) { return <label className="field-row"><span>{label}</span><input value={value} readOnly /></label>; }
 function InfoGrid({ items }: { items: Array<{ label: string; value: string | number }> }) { return <div className="info-grid">{items.map((item) => <div className="info-card" key={item.label}><span>{item.label}</span><b>{item.value}</b></div>)}</div>; }
 function KeyValueList({ rows }: { rows: Array<{ label: string; value: string | number | boolean | null }> }) { const visibleRows = rows.filter((row) => row.value !== null && row.value !== '' && row.value !== 'Не заполнено'); if (visibleRows.length === 0) return null; return <div className="key-value-list">{visibleRows.map((row) => <div key={row.label} className="key-value-row"><span>{row.label}</span><b>{formatParameterValue(row.value)}</b></div>)}</div>; }
 function EmptyState({ title, description }: { title: string; description: string }) { return <div className="empty-state"><h3>{title}</h3><p>{description}</p></div>; }
