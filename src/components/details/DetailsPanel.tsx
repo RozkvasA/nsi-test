@@ -226,7 +226,7 @@ function ObjectNextActions({ object, isRoom, onCreate, onSetActiveTab }: ObjectN
   const actions = isRoom ? [
     { label: 'Создать еще', onClick: () => onCreate('room', object.parentId) },
     { label: 'Добавить оборудование в помещение', onClick: () => onCreate('equipment', object.id) },
-    { label: 'Добавить систему для этого уровня', onClick: () => onCreate('system', object.parentId ?? object.id) },
+    { label: 'Добавить систему для этого уровня', onClick: () => onCreate('system', object.id) },
     { label: 'Перейти к помещению', onClick: () => onSetActiveTab('Параметры') },
   ] : [
     { label: 'Создать еще', onClick: () => object.parentId ? onCreate('childObject', object.parentId) : onCreate('rootObject') },
