@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { CreateEntityKind, DetailsNotice, DictionaryItem, EquipmentEntity, InfrastructureObject, NsiSection, NsiSectionId, ObjectStructureTemplate, ObjectType, ParameterDefinition, ParameterGroupId, ParameterGroupView, PendingObjectDraft, SelectedEntityView, SelectedRef, SystemEntity, TechCard, TreeActionId, TreeNode } from '../../types/nsi';
+import type { CreateEntityKind, DetailsNotice, DictionaryItem, EquipmentEntity, InfrastructureObject, NsiSection, NsiSectionId, ObjectStructureTemplate, ObjectType, ParameterDefinition, ParameterGroupId, ParameterGroupView, PendingEquipmentDraft, PendingObjectDraft, SelectedEntityView, SelectedRef, SystemEntity, TechCard, TreeActionId, TreeNode } from '../../types/nsi';
 import { DetailsPanel } from '../details/DetailsPanel';
 import { ObjectOverview } from '../overview/ObjectOverview';
 import { NsiTree } from '../tree/NsiTree';
@@ -7,14 +7,15 @@ import { NsiTree } from '../tree/NsiTree';
 interface NsiLayoutProps {
   sections: NsiSection[]; activeSection: NsiSection; activeSectionId: NsiSectionId; isDemoMode: boolean;
   searchQuery: string; sortAscending: boolean; childrenByParentId: Map<string | null, TreeNode[]>; expandedIds: Set<string>;
-  selectedRef: SelectedRef; selectedEntity: SelectedEntityView | null; pendingMoveRef: SelectedRef | null; pendingObjectDraft: PendingObjectDraft | null;
+  selectedRef: SelectedRef; selectedEntity: SelectedEntityView | null; pendingMoveRef: SelectedRef | null; pendingObjectDraft: PendingObjectDraft | null; pendingEquipmentDraft: PendingEquipmentDraft | null;
   activeTab: string; tabs: string[]; activeGroupId: ParameterGroupId; parameterGroups: ParameterGroupView[]; showEmpty: boolean; detailsNotice: DetailsNotice | null;
   objects: InfrastructureObject[]; objectTypes: ObjectType[]; objectStructureTemplates: ObjectStructureTemplate[]; systems: SystemEntity[]; equipment: EquipmentEntity[]; techCards: TechCard[]; dictionaries: DictionaryItem[]; selectedContextObjectId: string | null;
   onToggleDemoMode: () => void; onSelectSection: (sectionId: NsiSectionId) => void; onOpenObjectInTree: (objectId: string) => void; onCreateRootFromTemplate: () => void;
   onSetSearchQuery: (value: string) => void; onToggleSort: () => void; onToggleExpanded: (nodeId: string) => void; onSelectNode: (node: TreeNode) => void; onStartDrag: (node: TreeNode) => void; onDropOnNode: (node: TreeNode) => void;
   onCreate: (kind: CreateEntityKind, parentObjectId?: string | null, contextSystemId?: string | null, parentEquipmentId?: string | null) => void; onTreeAction: (node: TreeNode, actionId: TreeActionId) => void; onMoveToNode: (node: TreeNode) => void; onCancelMove: () => void;
   onSetActiveTab: (tab: string) => void; onSetActiveGroupId: (groupId: ParameterGroupId) => void; onSetShowEmpty: (value: boolean) => void; onDismissNotice: () => void; onConfirmRetire: () => void; onCancelRetire: () => void; onConfirmObjectTypeRetire: () => void;
-  onUpdatePendingObjectDraft: (patch: Partial<PendingObjectDraft>) => void; onConfirmCreateObject: () => void; onCancelPendingObjectDraft: () => void; onCreateObjectTypeForDraft: () => void;
+  onUpdatePendingObjectDraft: (patch: Partial<PendingObjectDraft>) => void; onConfirmCreateObject: () => void; onCancelPendingObjectDraft: () => void;
+  onUpdatePendingEquipmentDraft: (patch: Partial<PendingEquipmentDraft>) => void; onConfirmCreateEquipment: () => void; onCancelPendingEquipmentDraft: () => void;
   onUpdateObject: (id: string, patch: Partial<InfrastructureObject>) => void; onUpdateObjectType: (id: string, patch: Partial<ObjectType>) => void; onUpdateSystem: (id: string, patch: Partial<SystemEntity>) => void; onUpdateEquipment: (id: string, patch: Partial<EquipmentEntity>) => void;
   onCreateSystemType: (systemId: string) => void; onCreateEquipmentType: (equipmentId: string) => void; onAddEquipmentToSystem: (systemId: string) => void; onAddChildEquipment: (parentEquipmentId: string) => void; onDetachEquipmentFromSystem: (systemId: string, equipmentId: string) => void;
   onSelectSystem: (systemId: string, contextObjectId?: string | null) => void; onSelectEquipment: (equipmentId: string) => void; onSelectTechCard: (techCardId: string) => void; onCreateTechCardForEquipment: (equipmentId: string) => void;
