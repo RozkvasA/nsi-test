@@ -1,0 +1,135 @@
+:root {
+  --stage14-ink: #17202c;
+  --stage14-muted: #687385;
+  --stage14-line: #d8dee8;
+  --stage14-soft: #f7f8fa;
+  --stage14-hover: #f1f4f7;
+}
+
+body {
+  background: #f4f6f8;
+}
+
+.brand-mark,
+.section-button.active .section-icon,
+.user-avatar {
+  background: #edf1f5;
+  color: #29384a;
+}
+
+.section-button:hover,
+.section-button.active,
+.tree-row.selected,
+.tree-row:hover {
+  border-color: var(--stage14-line);
+  background: var(--stage14-soft);
+  color: var(--stage14-ink);
+}
+
+.tree-panel,
+.details-panel,
+.overview-panel {
+  border-color: var(--stage14-line);
+  box-shadow: 0 8px 22px rgba(25, 36, 52, 0.035);
+}
+
+.panel-header,
+.details-header,
+.overview-header,
+.topbar {
+  background: #fff;
+}
+
+.create-object-panel.calm-create-panel {
+  margin: 14px;
+  padding: 16px;
+  border: 1px solid var(--stage14-line);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.next-actions-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 0 0 12px;
+  padding: 12px;
+  border: 1px solid var(--stage14-line);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.next-actions-panel b {
+  display: block;
+  color: var(--stage14-ink);
+  font-size: 13px;
+}
+
+.next-actions-panel span {
+  display: block;
+  margin-top: 3px;
+  color: var(--stage14-muted);
+  font-size: 12px;
+}
+
+.next-actions-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.quiet-action,
+.secondary-action,
+.ghost-button,
+.compact-action-button,
+.create-actions button,
+.relation-add-button,
+.system-fast-actions button {
+  border: 1px solid #cfd6df;
+  border-radius: 9px;
+  background: #fff;
+  color: #263548;
+  font-weight: 700;
+}
+
+.quiet-action {
+  min-height: 32px;
+  padding: 7px 10px;
+}
+
+.quiet-action:hover,
+.secondary-action:hover,
+.ghost-button:hover,
+.compact-action-button:hover,
+.create-actions button:hover,
+.relation-add-button:hover,
+.system-fast-actions button:hover {
+  background: var(--stage14-hover);
+}
+
+.quiet-action:disabled,
+.system-fast-actions button:disabled {
+  cursor: not-allowed;
+  color: #9aa3af;
+  background: #f7f8fa;
+}
+
+.creation-mode-card,
+.template-description,
+.inline-warning,
+.empty-state {
+  border-color: var(--stage14-line);
+  background: #fafbfc;
+}
+
+.mode-button.active {
+  background: #eef1f4;
+  color: #1f2d3d;
+}
+
+.warning-pill,
+.inline-warning b {
+  color: #6b4e16;
+}
