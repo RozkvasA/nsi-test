@@ -3,6 +3,8 @@ import { getObjectDetailInfo } from './nsiObjectTemplates';
 
 export const equipmentTabs = ['Параметры', 'Размещение', 'Вложенность', 'Техкарты', 'Документы', 'Заметки'];
 
+export type EquipmentLevel = 'unit' | 'group' | 'model' | 'aggregate';
+
 const equipmentCoreCodes = new Set(['id', 'name', 'typeId', 'parentEquipmentId', 'systemId', 'placementObjectId', 'quantity', 'unit']);
 
 export function createEquipmentEntity(args: {
@@ -12,7 +14,11 @@ export function createEquipmentEntity(args: {
   placementObjectId: string;
   parentEquipmentId?: string | null;
   name?: string;
+  equipmentLevel?: EquipmentLevel;
+  quantity?: number;
 }): EquipmentEntity {
+  const level = args.parentEquipmentId ? 'unit' : args.equipmentLevel ?? 'unit';
+
   return {
     id: `eq-${args.createdAt}`,
     name: args.name ?? 'Новое оборудование',
@@ -20,9 +26,9 @@ export function createEquipmentEntity(args: {
     parentEquipmentId: args.parentEquipmentId ?? null,
     systemId: args.systemId,
     placementObjectId: args.placementObjectId,
-    quantity: 1,
+    quantity: level === 'unit' ? 1 : args.quantity ?? 1,
     unit: 'шт.',
-    parameters: { manufacturer: null, inventoryNumber: null, equipmentLevel: args.parentEquipmentId ? 'unit' : 'unit' },
+    parameters: { manufacturer: null, inventoryNumber: null, equipmentLevel: level },
   };
 }
 

@@ -11,6 +11,7 @@ import {
   getEquipmentWarnings,
   isAggregateEquipment,
   normalizeEquipmentParameterInput,
+  type EquipmentLevel,
 } from '../../utils/nsiEquipment';
 import { RelationBlock } from '../relations/RelationBlock';
 
@@ -34,6 +35,12 @@ interface EquipmentContentProps {
 
 const typeLabel = (objectTypes: ObjectType[], typeId: string) => objectTypes.find((type) => type.id === typeId)?.name ?? 'Вид не найден';
 const objectLabel = (objects: InfrastructureObject[], objectId: string) => objects.find((object) => object.id === objectId)?.name ?? 'Не задано';
+const equipmentLevelOptions: Array<{ value: EquipmentLevel; label: string }> = [
+  { value: 'unit', label: 'Конкретная единица' },
+  { value: 'group', label: 'Группа однотипных единиц' },
+  { value: 'model', label: 'Модель / тип' },
+  { value: 'aggregate', label: 'Агрегат / узел' },
+];
 
 export function EquipmentContent({ equipmentItem, equipment, systems, objects, objectTypes, techCards, activeTab, onSetActiveTab, onUpdateEquipment, onCreateEquipmentType, onAddChildEquipment, onSelectEquipment, onSelectSystem, onSelectTechCard, onCreateTechCardForEquipment }: EquipmentContentProps) {
   const safeActiveTab = equipmentTabs.includes(activeTab) ? activeTab : 'Параметры';
@@ -59,9 +66,17 @@ function EquipmentParameters({ equipmentItem, equipment, systems, objects, objec
   const parent = equipment.find((item) => item.id === equipmentItem.parentEquipmentId);
   const equipmentTypeParameters = getEquipmentTypeParameters(equipmentType);
   const systemOptions = [{ value: '', label: 'Не входит в систему' }, ...systems.map((system) => ({ value: system.id, label: system.name }))];
+  const level = (equipmentItem.parameters.equipmentLevel ?? 'unit') as EquipmentLevel;
   const aggregate = isAggregateEquipment(equipmentItem, equipment);
   const displayQuantity = getEquipmentDisplayQuantity(equipmentItem, equipment);
   const updateEquipmentParameterValue = (parameter: ParameterDefinition, value: ParameterDefaultValue) => patchEquipment({ parameters: { ...equipmentItem.parameters, [parameter.code]: value } });
+  const updateEquipmentLevel = (nextLevel: string) => {
+    const equipmentLevel = nextLevel as EquipmentLevel;
+    patchEquipment({
+      parameters: { ...equipmentItem.parameters, equipmentLevel },
+      quantity: equipmentLevel === 'unit' ? 1 : equipmentItem.quantity || 1,
+    });
+  };
 
   return (
     <div className="parameter-section reference-table-section">
@@ -69,6 +84,7 @@ function EquipmentParameters({ equipmentItem, equipment, systems, objects, objec
       <div className="reference-fields-grid">
         <EditableField label="Наименование" value={equipmentItem.name} onChange={(value) => patchEquipment({ name: value })} />
         <SelectField label="Вид элемента" value={equipmentItem.typeId} options={objectTypes.map((type) => ({ value: type.id, label: `${type.icon} ${type.name}` }))} onChange={(value) => patchEquipment({ typeId: value })} />
+        <SelectField label="Уровень учета" value={level} options={equipmentLevelOptions} onChange={updateEquipmentLevel} />
         <SelectField label="Система" value={equipmentItem.systemId} options={systemOptions} onChange={(value) => patchEquipment({ systemId: value, parentEquipmentId: null })} />
         <SelectField label="Место размещения" value={equipmentItem.placementObjectId} options={objects.map((object) => ({ value: object.id, label: object.name }))} onChange={(value) => patchEquipment({ placementObjectId: value })} />
         {equipmentItem.parentEquipmentId ? <ReadOnlyField label="Родительское оборудование" value={parent?.name ?? 'Не найдено'} /> : null}
